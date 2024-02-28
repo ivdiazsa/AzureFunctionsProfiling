@@ -1,0 +1,40 @@
+* Azure Functions Parameters and Stuff
+
+Here I'll be writing some notes about the Azure Functions experiments and all that stuff.
+
+These are the current trace metrics we are most interested in:
+
+- Cold Start Time
+- JIT Time
+- JIT Count
+- Type Load Time
+- Type Load Count
+
+** Cold Start Time
+
+This metric can be found by opening the =Events= section of the trace. There, apply
+a filter for /Microsoft-AzureFunctions/ and look for the following values:
+
+- ColdStartRequest/Start
+- ColdStartRequest/Stop
+
+The difference between those values is the *Cold Start Time* we're looking for.
+
+** JIT Time and JIT Count
+
+These metrics can be found by opening =JITStats= under the =Advanced= section of the trace.
+There, find the ~FunctionsNetHost~ process. The first table contains the metrics we are
+looking for, as well as a few others:
+
+- Jitting Trigger
+- Number of Compilations (aka JIT Count)
+- Percent of Total Jitted Compilations
+- JIT Time in msecs (aka JIT Time)
+- JIT Time in Percent of Total Process CPU Usage
+
+** Type Load Time and Type Load Count
+
+Similarly to the JIT Time and Count metrics, the Type Load metrics are also found
+in the =Advanced= section of the trace. Open =Runtime Loader= and there find the
+=FunctionsNetHost= process. It will have options to retrieve the full data in either
+text mode or Excel mode.
