@@ -1,72 +1,96 @@
+#Requires -RunAsAdministrator
+
 [CmdletBinding(PositionalBinding=$false)]
 Param(
-    [ValidateSet("run", "analyze", "all")][string]$modeToRun = "all",
+    # Universal Parameters
 
-    [string]$workDir = (Get-Location),
-    [string]$perfviewExe = (Join-Path $workDir "PerfView.exe"),
+    [ValidateSet("run", "analyze", "all")][string]$mode = "all",
+    [switch]$help,
     [string]$traceName = "PerfViewData.etl",
-    [string]$tracePath = $workDir,
+    [string]$tracePath = $appHostDir,
+
+    # Run App Specific Parameters
+
+    [string]$appHostDir = (Get-Location),
+    [string]$perfviewExePath = (Join-Path $appHostDir "PerfView.exe"),
 
     [ValidateSet("base", "prejit", "preload", "preload+prejit")] `
-      [string]$scenario = "base"
+      [string]$scenario = "base",
+
+    # Profile Trace Specific Parameters
+
+    [string]$analyzerName = "FunctionsColdStartProfileAnalyzer.exe",
+    [string]$analyzerPath = $appHostDir
 )
 
 # *********************
 # Auxiliary Functions!
 # *********************
 
+# /// Validate-RunPaths()
 # This function performs the necessary checks to ensure all paths are valid, so
 # we can begin the run safely.
 
-function Validate-Paths()
+function Validate-RunPaths()
 {
-    if (-Not (Test-Path -Path $workDir))
+    if (-not (Test-Path -Path $appHostDir))
     {
-        Write-Host "The given work path '$workDir' was unfortunately not found :(`n"
+        Write-Host "The given work path '$appHostDir' was unfortunately not found :(`n"
         return $false
     }
 
-    if (-Not (Test-Path -Path $perfviewExe))
+    if (-not (Test-Path -Path $perfviewExePath))
     {
-        Write-Host "The given PerfView path '$perfviewExe' was unfortunately not found :(`n"
+        Write-Host "The given PerfView path '$perfviewExePath' was unfortunately not" `
+                   "found :(`n"
         return $false
     }
-
-    # if (-Not (Test-Path -Path $scenarioSettingsPath))
-    # {
-    #     Write-Host "The given settings path '$scenarioSettingsPath' was unfortunately not found :(`n"
-    #     return $false
-    # }
 
     # Not finding the given traces path is not the end of the world. We can save
     # the traces to the default working directory in this case.
-    if (-Not (Test-Path -Path $tracePath))
+    if (-not (Test-Path -Path $tracePath))
     {
         Write-Host "The given traces path '$tracePath' was unfortunately not found :("
-        Write-Host "Setting it to the working path '$workDir'..."
-        $tracePath = $workDir
+        Write-Host "Setting it to the working path '$appHostDir'..."
+        $tracePath = $appHostDir
     }
 
     return $true
+}
+
+# /// Print-Banner
+# This function just prints a nice-looking banner to show the user which stage
+# this little script is currently in.
+
+function Print-Banner([string]$StageName)
+{
+    Write-Host "`n$(""*"" * 50)"
+    Write-Host "STARTING $StageName STAGE"
+    Write-Host "$(""*"" * 50)`n"
 }
 
 # ****************
 # Main Functions!
 # ****************
 
+# /// Run-App()
 # This function runs the Functions App Host with dotnet's tool 'func-harness'.
 
 function Run-App()
 {
     # If we get erroneous paths, then we can't do any work, so we exit.
-    if (-Not (Validate-Paths)) { exit 1 }
+    if (-Not (Validate-RunPaths)) { exit 1 }
+
+    # Display a nice banner indicating we're working on the 'Run' stage :)
+    Print-Banner -StageName "RUNNING"
 
     # We save the place where this script was called from to keep the user's environment
     # consistent and undisrupted.
     $originalDir = (Get-Location)
+    $traceFullPath = (Join-Path $tracePath $traceName)
 
-    Write-Host "Setting cwd to '$workDir'..."
-    Set-Location -Path $workDir
+    Write-Host "Setting cwd to '$appHostDir'..."
+    Set-Location -Path $appHostDir
 
     # JSON settings filenames we will require.
     $runnerSettingsFile   = "harness.settings.json"
@@ -74,9 +98,9 @@ function Run-App()
     $backupSettingsFile   = "harness.settings_backup.json"
 
     # With full path.
-    $runnerSettingsPath   = (Join-Path $workDir $runnerSettingsFile)
-    $scenarioSettingsPath = (Join-Path $workDir $scenarioSettingsFile)
-    $backupSettingsPath   = (Join-Path $workDir $backupSettingsFile)
+    $runnerSettingsPath   = (Join-Path $appHostDir $runnerSettingsFile)
+    $scenarioSettingsPath = (Join-Path $appHostDir $scenarioSettingsFile)
+    $backupSettingsPath   = (Join-Path $appHostDir $backupSettingsFile)
 
     # Check if there is already a 'harness.settings.json' file. If yes, then we need
     # to rename it to make space for the scenario we want to run. This is because the
@@ -91,7 +115,8 @@ function Run-App()
     Write-Host "Renaming '$scenarioSettingsFile' to '$runnerSettingsFile'..."
     Rename-Item -Path $scenarioSettingsPath -NewName $runnerSettingsFile
 
-    # Azure Functions gave us some specific providers to capture the right profiling data.
+    # Azure Functions gave us some specific providers to capture the right
+    # profiling data.
     $providers = @(
         "DCCCCC7B-F393-4852-96AE-BB6769A266C4",
         "E30BA2D3-75B8-4E96-9F82-F41EAAC243E5",
@@ -99,7 +124,7 @@ function Run-App()
     )
 
     $perfviewCaptureArgs = @(
-        "/DataFile:""$(Join-Path $tracePath $traceName)""",
+        "/DataFile:""$traceFullPath""",
         "/BufferSizeMB:256",
         "/StackCompression",
         "/CircularMB:500",
@@ -112,8 +137,8 @@ function Run-App()
         "func-harness"
     )
 
-    Write-Host "`nRunning $perfviewExe $($perfviewCaptureArgs -Join ' ')"
-    Start-Process -FilePath $perfviewExe `
+    Write-Host "`nRunning $perfviewExePath $($perfviewCaptureArgs -Join ' ')"
+    Start-Process -FilePath $perfviewExePath `
                   -ArgumentList $perfviewCaptureArgs `
                   -NoNewWindow -Wait
 
@@ -126,15 +151,47 @@ function Run-App()
     Rename-Item -Path $backupSettingsPath -NewName $runnerSettingsFile
 
     # Restore the original path of the terminal from which this script was run.
+
     Write-Host "Restoring cwd to '$originalDir'..."
     Set-Location -Path $originalDir
 }
 
+# /// Analyze-App()
 # This function runs the Azure Functions profiler app to analyze the given trace.
 
-function Profile-App()
+function Analyze-App()
 {
-    Write-Host "Under Construction!"
+    $analyzerExePath = (Join-Path $analyzerPath $analyzerName)
+    $traceFullPath = (Join-Path $tracePath $traceName)
+
+    if (-not (Test-Path -Path $analyzerExePath))
+    {
+        Write-Host "`nThe given profile analyzer tool '$analyzerFullPath' was" `
+                   "unfortunately not found :(`n"
+        return $false
+    }
+
+    # Display a nice banner indicating we're working on the 'Analyze' stage :)
+    Print-Banner -StageName "ANALYZING"
+
+    # We save the place where this script was called from to keep the user's environment
+    # consistent and undisrupted.
+    $originalDir = (Get-Location)
+
+    Write-Host "Setting cwd to '$analyzerPath'..."
+    Set-Location -Path $analyzerPath
+
+    $analyzerArgs = @($traceFullPath)
+
+    Write-Host "`nRunning $analyzerExePath $($analyzerArgs -Join ' ')"
+    Start-Process -FilePath $analyzerExePath `
+                  -ArgumentList $analyzerArgs `
+                  -NoNewWindow -Wait
+
+    # Restore the original path of the terminal from which this script was run.
+
+    Write-Host "Restoring cwd to '$originalDir'..."
+    Set-Location -Path $originalDir
 }
 
 # *****************
@@ -143,7 +200,21 @@ function Profile-App()
 
 Write-Host "`nLaunching script...`n"
 
-if (($modeToRun -ieq "run") -or ($modeToRun -ieq "all")) { Run-App }
-if (($modeToRun -ieq "analyze") -or ($modeToRun -ieq "all")) { Profile-App }
+# I want to give my team the liberty of passing the trace path as either the
+# folder containing the traces, or the trace file itself, using the '-tracePath'
+# command-line argument. However, here in the script, we do need to work with
+# both, path and trace, separately at some points. So, since we also support the
+# '-traceName' flag, we need to work some magic to make this transparent to
+# the user.
+
+if (([System.IO.Path]::GetExtension($tracePath) -eq ".etl") `
+    -or ([System.IO.Path]::GetExtension($tracePath) -eq ".etlx"))
+{
+    $traceName = (Split-Path -Path $tracePath -Leaf)
+    $tracePath = (Split-Path -Path $tracePath -Parent)
+}
+
+if (($mode -ieq "run") -or ($mode -ieq "all")) { Run-App }
+if (($mode -ieq "analyze") -or ($mode -ieq "all")) { Analyze-App }
 
 Write-Host "`nScript finished!`n"
