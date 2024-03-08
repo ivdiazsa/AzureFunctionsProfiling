@@ -3,7 +3,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <IsSigned>true</IsSigned>
-    <PublishDir>$(HostingDestination)\Tools\FunctionsColdStartProfileAnalyzer</PublishDir>
+    <!-- <PublishDir>$(HostingDestination)\Tools\FunctionsColdStartProfileAnalyzer</PublishDir> -->
     <UseCommonOutputDirectory>false</UseCommonOutputDirectory>
   </PropertyGroup>
   <ItemGroup>
