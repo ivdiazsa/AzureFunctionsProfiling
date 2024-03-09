@@ -2,13 +2,6 @@
 
 [CmdletBinding(PositionalBinding=$false)]
 Param(
-    # Universal Parameters
-
-    [ValidateSet("run", "analyze", "all")][string]$mode = "all",
-    [switch]$help,
-    [string]$traceName = "PerfViewData.etl",
-    [string]$tracePath = $appHostDir,
-
     # Run App Specific Parameters
 
     [string]$appHostDir = (Get-Location),
@@ -20,7 +13,13 @@ Param(
     # Profile Trace Specific Parameters
 
     [string]$analyzerName = "FunctionsColdStartProfileAnalyzer.exe",
-    [string]$analyzerPath = $appHostDir
+    [string]$analyzerPath = (Get-Location),
+
+    # Universal Parameters
+
+    [ValidateSet("run", "analyze", "all")][string]$mode = "all",
+    [string]$traceName = "PerfViewData.etl",
+    [string]$tracePath = $appHostDir
 )
 
 # *********************
