@@ -27,7 +27,10 @@ all the options in PerfView and the harness tool.
 
 ### The Analyze Stage
 
-Under construction!
+This stage is in charge of passing the generated or provided trace to the analyzer
+tool. Currently, it will print the whole output just like if the analyzer tool was
+run on its own, but I'm already working on implementing filtering and processing
+of the information and the data.
 
 ### How to Use the Script
 
@@ -48,8 +51,14 @@ The supported parameters are the following:
   so on are located.
 
 * `-analyzerName` (Default: `FunctionsColdStartProfileAnalyzer.exe`)
+  This param contains the name of the analyzer executable. Currently, there is no
+  need to change the default value because the Azure Functions folks are providing
+  us with the tool, but I added it just in case.
 
 * `-analyzerPath` (Default: _Current Directory_)
+  This param contains the path to the folder that contains the tool denoted by the
+  previous param `-analyzerName`. If omitted, the script will look for it in the
+  current working directory.
 
 * `-mode` (Default: `all`):
   This param indicates the script which stage(s) to run. By default, it is set
@@ -86,3 +95,31 @@ The supported parameters are the following:
   ```
 
   Whichever option you use is supported by the script.
+
+#### Examples
+
+Do the full run (run and analyze) where the Functions App Host is saved to a directory
+in `C:/Dev/FunctionsAppHost`, running in `prejit` mode, using a PerfView executable in
+that same folder. The analyzer tool is saved to `C:/Dev/ProfileAnalyzer`.
+
+```powershell
+./AzureFunctionsProfiling.ps1 -appHostDir C:/Dev/FunctionsAppHost `
+                              -scenario prejit `
+                              -analyzerPath C:/Dev/ProfileAnalyzer
+```
+
+Just capture a trace to analyze elsewhere. In this case, we're using a preinstalled
+PerfView executable in the running machine. The `base` scenario is run here.
+
+```powershell
+./AzureFunctionsProfiling.ps1 -appHostDir C:/Dev/FunctionsAppHost `
+                              -perfviewExePath C:/Program Files/PerfView/PerfView.exe
+```
+
+Just run the profiler on a trace we got elsewhere and is saved to C:/Dev/Traces.
+
+```powershell
+./AzureFunctionsProfiling.ps1 -analyzerPath C:/Dev/ProfileAnalyzer `
+                              -tracePath C:/Dev/Traces `
+                              -traceName MyAcquiredFromElsewhereTrace.etl
+```
