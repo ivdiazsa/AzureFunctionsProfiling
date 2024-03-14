@@ -1,0 +1,626 @@
+* Custom Native Hosts in Dotnet
+
+In this little doc, I will be compiling my notes from deciphering and interpreting
+the code from the example in ~github.com/dotnet/samples~.
+
+** Some Concepts
+
+*** HostFxr Runtime Delegate
+:PROPERTIES:
+:CUSTOM_ID: hostfxr_get_runtime_delegate
+:END:
+
+The method called ~hostfxr_get_runtime_delegate()~ is in charge of getting a callable
+interface /(COM)/ to a managed instance. This function is defined in file =hostfxr.cpp=
+in the native subtree of the [[https://github.com/dotnet/runtime][runtime repo]] code base:
+
+#+NAME: HostFxr_Get_Runtime_Delegate
+#+BEGIN_SRC C++
+SHARED_API int32_t HOSTFXR_CALLTYPE hostfxr_get_runtime_delegate(
+    const hostfxr_handle host_context_handle,
+    hostfxr_delegate_type type,
+    /*out*/ void **delegate)
+{
+    trace_hostfxr_entry_point(_X("hostfxr_get_runtime_delegate"));
+
+    if (delegate == nullptr)
+        return StatusCode::InvalidArgFailure;
+
+    *delegate = nullptr;
+
+    coreclr_delegate_type delegate_type = hostfxr_delegate_to_coreclr_delegate(type);
+    if (delegate_type == coreclr_delegate_type::invalid)
+        return StatusCode::InvalidArgFailure;
+
+    const host_context_t *context;
+    if (host_context_handle == nullptr)
+    {
+        context = fx_muxer_t::get_active_host_context();
+        if (context == nullptr)
+        {
+            trace::error(_X("Hosting components context has not been initialized. Cannot get runtime delegate."));
+            return StatusCode::HostInvalidState;
+        }
+    }
+    else
+    {
+        host_context_t *context_from_handle = host_context_t::from_handle(host_context_handle);
+        if (context_from_handle == nullptr)
+            return StatusCode::InvalidArgFailure;
+
+        if (context_from_handle->type != host_context_type::secondary)
+        {
+            int rc = fx_muxer_t::load_runtime(context_from_handle);
+            if (rc != StatusCode::Success)
+                return rc;
+        }
+
+        context = context_from_handle;
+    }
+
+    return fx_muxer_t::get_runtime_delegate(context, delegate_type, delegate);
+}
+#+END_SRC
+
+As taken from the [[https://github.com/dotnet/runtime/blob/main/docs/design/features/native-hosting.md][native hosting doc]], here are the definitions of the arguments
+of this function:
+
+Starts the runtime and returns a function pointer to specified functionality of the runtime.
+
++ =host_context_handle=: handle to the initialized host context.
+  - [.NET 8 and above] If set to NULL the function will operate on the active host
+    context in the process.
+
++ =type=: the type of runtime functionality requested
+
+  - ~hdt_load_assembly_and_get_function_pointer~: Entry point which loads an assembly
+    (with dependencies) and returns function pointer for a specified static method.
+    See below for details (Loading and calling managed components)
+
+  - ~hdt_com_activation~, ~hdt_com_register~, ~hdt_com_unregister~: COM activation
+    entry-points - See COM activation for more details.
+
+  - ~hdt_load_in_memory_assembly~: IJW entry-point - See IJW activation for more
+    details.
+
+  - ~hdt_winrt_activation~ _[.NET 3.* only]_: WinRT Activation entry-point - See WinRT
+    activation for more details. The delegate is not supported for .NET 5 and above.
+
+  - ~hdt_get_function_pointer~ _[.NET 5 and above]_ - Entry-point which finds a managed
+    method and returns a function pointer to it. See calling managed functions for
+    details.
+
+  - ~hdt_load_assembly~ _[.NET 8 and above]_ - Entry-point which loads an assembly by
+    its path. See loading managed components for details.
+
+  - ~hdt_load_assembly_bytes~ _[.NET 8 and above]_ - Entry-point which loads an assembly
+    from a byte array. See loading managed components for details.
+
++ =delegate=: when successful, the native function pointer to the requested runtime functionality.
+
+*** Includes Provided by Dotnet
+
+There are a few runtime specific header files that we need a copy on our custom host.
+These ones are obtained from the [[https://github.com/dotnet/runtime][runtime repo]] from the following paths:
+
+- =src/native/corehost/hostfxr.h=
+- =src/native/corehost/coreclr_delegates.h=
+- =src/native/corehost/nethost/nethost.h=
+
+Where these files are placed in the project doesn't matter per se, as this is specified
+in the native host /csproj/ file [[(nativehost.csproj)]].
+
+** Main Code
+
+*** NativeHost.cpp
+
+#+NAME: NativeHost Includes and Defines
+#+BEGIN_SRC C++
+// In nativehost.cpp
+
+// Standard headers
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <chrono>
+#include <iostream>
+#include <thread>
+#include <vector>
+
+// Provided by the AppHost NuGet package and installed as an SDK pack
+#include <nethost.h>
+
+// Header files copied from https://github.com/dotnet/core-setup
+#include <coreclr_delegates.h>
+#include <hostfxr.h>
+
+#ifdef WINDOWS
+#include <Windows.h>
+
+#define STR(s) L ## s
+#define CH(c) L ## c
+#define DIR_SEPARATOR L'\\'
+
+#define string_compare wcscmp
+
+#else
+#include <dlfcn.h>
+#include <limits.h>
+
+#define STR(s) s
+#define CH(c) c
+#define DIR_SEPARATOR '/'
+#define MAX_PATH PATH_MAX
+
+#define string_compare strcmp
+
+#endif
+
+using string_t = std::basic_string<char_t>;
+
+namespace
+{
+    // Globals to hold hostfxr exports
+    hostfxr_initialize_for_dotnet_command_line_fn init_for_cmd_line_fptr;
+    hostfxr_initialize_for_runtime_config_fn init_for_config_fptr;
+    hostfxr_get_runtime_delegate_fn get_delegate_fptr;
+    hostfxr_run_app_fn run_app_fptr;
+    hostfxr_close_fn close_fptr;
+
+    // Forward declarations
+    bool load_hostfxr(const char_t *app);
+    load_assembly_and_get_function_pointer_fn get_dotnet_load_assembly(const char_t *assembly);
+
+    int run_component_example(const string_t& root_path);
+    int run_app_example(const string_t& root_path);
+}
+#+END_SRC
+
+#+NAME: NativeHost Main Method
+#+BEGIN_SRC C++
+// In nativehost.cpp
+
+int main(int argc, char *argv[])
+{
+    // Get the current executable's directory
+    // This sample assumes the managed assembly to load and its runtime configuration file are next to the host
+    char_t host_path[MAX_PATH];
+#if WINDOWS
+    DWORD size = ::GetFullPathNameW(argv[0], sizeof(host_path) / sizeof(char_t), host_path, nullptr);
+    assert(size != 0);
+#else
+    char *resolved = realpath(argv[0], host_path);
+    assert(resolved != nullptr);
+#endif
+
+    string_t root_path = host_path;
+    size_t pos = root_path.find_last_of(DIR_SEPARATOR);
+    assert(pos != string_t::npos);
+    root_path = root_path.substr(0, pos + 1);
+
+    if (argc > 1 && string_compare(argv[1], STR("app")) == 0)
+    {
+        return run_app_example(root_path);
+    }
+    else
+    {
+        return run_component_example(root_path);
+    }
+}
+#+END_SRC
+
+In this main method, what does everything mean?
+
++ ~host_path~: Path to the =nativehost= executable (e.g. =/bin/Release/nativehost=)
+             Acquired from ~char *resolved~.
++ ~root_path~: Path where the =nativehost= executable is located (e.g. /bin/Release=)
++ ~pos~: Index where the last "/" is located (i.e. 12 in these examples)
+
+  #+NAME: RunAppExample
+  #+BEGIN_SRC C++
+    // In nativehost.cpp
+
+    int run_app_example(const string_t& root_path)
+    {
+        const string_t app_path = root_path + STR("App.dll");
+
+        if (!load_hostfxr(app_path.c_str()))
+        {
+            assert(false && "Failure: load_hostfxr()");
+            return EXIT_FAILURE;
+        }
+
+        // Load .NET Core
+        hostfxr_handle cxt = nullptr;
+        std::vector<const char_t*> args { app_path.c_str(), STR("app_arg_1"), STR("app_arg_2") };
+        int rc = init_for_cmd_line_fptr(args.size(), args.data(), nullptr, &cxt);
+        if (rc != 0 || cxt == nullptr)
+        {
+            std::cerr << "Init failed: " << std::hex << std::showbase << rc << std::endl;
+            close_fptr(cxt);
+            return EXIT_FAILURE;
+        }
+
+        // Get the function pointer to get function pointers
+        get_function_pointer_fn get_function_pointer;
+        rc = get_delegate_fptr(
+            cxt,
+            hdt_get_function_pointer,
+            (void**)&get_function_pointer);
+        if (rc != 0 || get_function_pointer == nullptr)
+            std::cerr << "Get delegate failed: " << std::hex << std::showbase << rc << std::endl;
+
+        // Function pointer to App.IsWaiting
+        typedef unsigned char (CORECLR_DELEGATE_CALLTYPE* is_waiting_fn)();
+        is_waiting_fn is_waiting;
+        rc = get_function_pointer(
+            STR("App, App"),
+            STR("IsWaiting"),
+            UNMANAGEDCALLERSONLY_METHOD,
+            nullptr, nullptr, (void**)&is_waiting);
+        assert(rc == 0 && is_waiting != nullptr && "Failure: get_function_pointer()");
+
+        // Function pointer to App.Hello
+        typedef void (CORECLR_DELEGATE_CALLTYPE* hello_fn)(const char*);
+        hello_fn hello;
+        rc = get_function_pointer(
+            STR("App, App"),
+            STR("Hello"),
+            UNMANAGEDCALLERSONLY_METHOD,
+            nullptr, nullptr, (void**)&hello);
+        assert(rc == 0 && hello != nullptr && "Failure: get_function_pointer()");
+
+        // Invoke the functions in a different thread from the main app
+        std::thread t([&]
+        {
+            while (is_waiting() != 1)
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+            for (int i = 0; i < 3; ++i)
+                hello("from host!");
+        });
+
+        // Run the app
+        run_app_fptr(cxt);
+        t.join();
+
+        close_fptr(cxt);
+        return EXIT_SUCCESS;
+    }
+
+  #+END_SRC
+
+This is the main code of the =nativehost= that does all the magic to run the app.
+
++ ~app_path~: Path to the =app= dll (e.g. =/bin/Release/App.dll=)
++ [[(load_hostfxr)]](): Call that launches the host with the given app.
++ ~args~: This is a vector containing the name of the app as its first element, and
+        subsequently the [[(string[] args)]] that the managed app will receive.
+
++ [[(init_for_cmd_line_fptr)]]: This is the function pointer that presumably fetches
+                            and contains "hostfxr_initialize_for_dotnet_command_line".
+
++ [[(get_delegate_fptr)]]: This is the function pointer that presumably fetches and contains
+                       "[[#hostfxr_get_runtime_delegate]]".
+
+                       In this code, we can see that it is passing a constant value
+                       called =hdt_get_function_pointer=. As described in the runtime
+                       delegates [[HostFxr Runtime Delegate][section]], this function signals =hostfxr_get_runtime_delegate=
+                       to create a delegate that will be in charge of fetching a
+                       pointer to a given function written in a managed app.
+
++ ~get_function_pointer~: The two ~get_function_pointer~ calls use the delegate function,
+                        whichever that is, that was acquired from the previous call
+                        to ~get_delegate_fptr~.
+
+  1) The first call to =get_function_pointer=, which was obtained from =hostfxr_get_runtime_delegate=,
+     looks for a method called [[(IsWaiting)]] in the managed app called =App=.
+  2) The second call to =get_function_pointer= looks for a method called [[(Hello)]] in
+     the managed app called =App=.
+
+  *NOTE*: It is important to mention that we label these functions in the C# code with
+        the ~[UnmanagedCallersOnly]~, in order to tell the runtime that we will be
+        calling them from C++ code.
+
++ [[(run_app_fptr)]]: This is the function pointer that presumably actually runs the app.
+                  It contains "hostfxr_run_app".
+
++ [[(close_fptr)]]: This is the function pointer that presumably does all the cleanup,
+                once the app has finished executing. It contains "hostfxr_close".
+
+In the ~std::thread~ section, the code seems to be calling the ~hello()~ function pointer
+three times, passing the string "from host!" as an argument. In the C# code, this
+argument is manifested as an =IntPtr= parameter in the [[(Hello)]] function. Then, C#
+translates it into a readable string with a call to ~Marshal.PtrToStringUTF8()~, and
+this is how the C# code is run from the C++ custom host.
+
+*** App.cs
+
+#+NAME: App Dll Code
+#+BEGIN_SRC csharp
+using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+
+public class App
+{
+    private static byte isWaiting = 0;
+    private static int s_CallCount = 0;
+    private static ManualResetEvent mre = new ManualResetEvent(false);
+
+    public static void Main(string[] args) (ref:string[] args)
+    {
+        Console.WriteLine($"{nameof(App)} started - args = [ {string.Join(", ", args)} ]");
+        isWaiting = 1;
+        mre.WaitOne();
+    }
+
+    [UnmanagedCallersOnly] (ref:IsWaiting)
+    public static byte IsWaiting() => isWaiting;
+
+    [UnmanagedCallersOnly] (ref:Hello)
+    public static void Hello(IntPtr message)
+    {
+        Console.WriteLine($"Hello, world! from {nameof(App)} [count: {++s_CallCount}]");
+        Console.WriteLine($"-- message: {Marshal.PtrToStringUTF8(message)}");
+        if (s_CallCount >= 3)
+        {
+            Console.WriteLine("Signaling app to close");
+            mre.Set();
+        }
+    }
+}
+#+END_SRC
+
+** Helper Codes
+
+#+NAME: Load_HostFxr
+#+BEGIN_SRC C++
+    // In nativehost.cpp
+
+    // Using the nethost library, discover the location of hostfxr and get exports
+    bool load_hostfxr(const char_t *assembly_path) (ref:load_hostfxr)
+    {
+        get_hostfxr_parameters params { sizeof(get_hostfxr_parameters), assembly_path, nullptr };
+        // Pre-allocate a large buffer for the path to hostfxr
+        char_t buffer[MAX_PATH];
+        size_t buffer_size = sizeof(buffer) / sizeof(char_t);
+        int rc = get_hostfxr_path(buffer, &buffer_size, &params);
+        if (rc != 0)
+            return false;
+
+        // Load hostfxr and get desired exports
+        void *lib = load_library(buffer);
+        
+        (ref:init_for_cmd_line_fptr)
+        init_for_cmd_line_fptr = (hostfxr_initialize_for_dotnet_command_line_fn)get_export(lib, "hostfxr_initialize_for_dotnet_command_line");
+        
+        init_for_config_fptr = (hostfxr_initialize_for_runtime_config_fn)get_export(lib, "hostfxr_initialize_for_runtime_config");
+        
+        (ref:get_delegate_fptr)
+        get_delegate_fptr = (hostfxr_get_runtime_delegate_fn)get_export(lib, "hostfxr_get_runtime_delegate");
+
+        (ref:run_app_fptr)
+        run_app_fptr = (hostfxr_run_app_fn)get_export(lib, "hostfxr_run_app");
+
+        (ref:close_fptr)
+        close_fptr = (hostfxr_close_fn)get_export(lib, "hostfxr_close");
+
+        return (init_for_config_fptr && get_delegate_fptr && close_fptr);
+    }
+#+END_SRC
+
++ ~assembly_path~: Path to the app dll (e.g. =/bin/Release/App.dll=)
++ ~buffer~: Path to the HostFxr library that will be used (e.g. =/dotnet/host/fxr/version/libhostfxr.so=)
++ [[(load_library)]]: This is the function that brings =libhostfxr.so= into play.
+
+#+NAME: Load_Library
+#+BEGIN_SRC C++
+/********************************************************************************************
+ * Function used to load and activate .NET Core
+ ********************************************************************************************/
+
+namespace
+{
+    // Forward declarations
+    void *load_library(const char_t *);
+    void *get_export(void *, const char *);
+
+#ifdef WINDOWS
+    void *load_library(const char_t *path)
+    {
+        HMODULE h = ::LoadLibraryW(path);
+        assert(h != nullptr);
+        return (void*)h;
+    }
+    void *get_export(void *h, const char *name)
+    {
+        void *f = ::GetProcAddress((HMODULE)h, name);
+        assert(f != nullptr);
+        return f;
+    }
+#else
+    void *load_library(const char_t *path) (ref:load_library)
+    {
+        void *h = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+        assert(h != nullptr);
+        return h;
+    }
+    void *get_export(void *h, const char *name)
+    {
+        void *f = dlsym(h, name);
+        assert(f != nullptr);
+        return f;
+    }
+#endif
+#+END_SRC
+
++ ~path~: This is a ~char *~ that contains the path to the HostFxr Library calculated
+        in the function above (e.g. =/dotnet/host/fxr/version/libhostfxr.so=)
+
+#+NAME: Build.proj
+#+BEGIN_SRC xml
+<Project Sdk="Microsoft.Build.Traversal">
+
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+
+    <RunCommand>$(BinRoot)\$(Configuration)\nativehost</RunCommand>
+    <RunCommand Condition="$([MSBuild]::IsOsPlatform('Windows'))">$(BinRoot)\$(Configuration)\nativehost.exe</RunCommand>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="src/NativeHost/*.csproj" />
+    <ProjectReference Include="src/DotNetLib/*.csproj" />
+    <ProjectReference Include="src/App/*.csproj" />
+  </ItemGroup>
+
+</Project>
+#+END_SRC
+
+#+NAME: NativeHost.csproj
+#+BEGIN_SRC xml
+<Project Sdk="Microsoft.NET.Sdk"> (ref:nativehost.csproj)
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(SourceRoot)/DotNetLib/DotNetLib.csproj" />
+  </ItemGroup>
+
+  <!-- This is to hide all the source files in VS to make the project cleaner,
+       but also to include them in the build so that when the source is modified the build will rerun the C++ compiler. -->
+  <ItemGroup>
+    <Content Include="*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
+    <Content Include="inc/*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
+    <Content Include="inc.vs/*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <NativeBinDir>$(BinRoot)/$(Configuration)</NativeBinDir>
+    <NativeOutputName>nativehost</NativeOutputName>
+
+    <NativePlatform>$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)</NativePlatform>
+    <NativeObjDir>$(MSBuildThisFileDirectory)obj/$(Configuration)/$(NativePlatform)/</NativeObjDir>
+    <NativeHostDirectory>$(MSBuildThisFileDirectory)</NativeHostDirectory>
+  </PropertyGroup>
+
+  <!-- Properties for MSVCFindCompilerPaths -->
+  <PropertyGroup Condition="$([MSBuild]::IsOsPlatform('Windows'))">
+    <MSVCPlatform>x64</MSVCPlatform>
+    <MSVCPlatform Condition="$(NETCoreSDKRuntimeIdentifier.Contains('x86'))">x86</MSVCPlatform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <NativeSource Include="nativehost.cpp" />
+    <Clean Include="$(NativeBinDir)/$(NativeOutputName).*" />
+    <Clean Include="$(NativeObjDir)/*.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CompilerPaths"
+                      Version="[1.0.2, )"
+                      Condition="$([MSBuild]::IsOsPlatform('Windows'))" />
+  </ItemGroup>  
+
+    <!-- Targets to build the native project. The output goes directly to the bin directory -->
+  <Target Name="PrepareForNativeBuild">
+    <PropertyGroup>
+      <NativeOutputExtension Condition="$([MSBuild]::IsOsPlatform('Linux'))"></NativeOutputExtension>
+      <NativeOutputExtension Condition="$([MSBuild]::IsOsPlatform('OSX'))"></NativeOutputExtension>
+      <NativeOutputExtension Condition="$([MSBuild]::IsOsPlatform('Windows'))">.exe</NativeOutputExtension>
+      <NativeOutputFilePath>$(NativeBinDir)/$(NativeOutputName)$(NativeOutputExtension)</NativeOutputFilePath>
+
+      <SourceFiles>@(NativeSource-> '&quot;%(RootDir)%(Directory)%(Filename)%(Extension)&quot;', ' ')</SourceFiles>
+
+      <NetHostDir>$(NetCoreTargetingPackRoot)/Microsoft.NETCore.App.Host.$(NETCoreSdkRuntimeIdentifier)/$(BundledNETCoreAppPackageVersion)/runtimes/$(NETCoreSdkRuntimeIdentifier)/native</NetHostDir>
+
+      <NetHostName Condition="$([MSBuild]::IsOsPlatform('Windows'))">nethost.dll</NetHostName>
+      <NetHostName Condition="$([MSBuild]::IsOsPlatform('Linux'))">libnethost.so</NetHostName>
+      <NetHostName Condition="$([MSBuild]::IsOsPlatform('OSX'))">libnethost.dylib</NetHostName>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(NativeBinDir)" />
+    <MakeDir Directories="$(NativeObjDir)" />
+  </Target>
+
+  <Target Name="BuildNativeProjectUnix"
+          AfterTargets="Build"
+          DependsOnTargets="PrepareForNativeBuild"
+          Condition="$([MSBuild]::IsOsPlatform('Linux')) OR $([MSBuild]::IsOsPlatform('OSX'))">
+    <PropertyGroup>
+      <IncPaths>-I$(NativeHostDirectory)inc -I&quot;$(NetHostDir)&quot;</IncPaths>
+      <CompilerArgs>-g</CompilerArgs>
+    </PropertyGroup>
+    <PropertyGroup Condition="$([MSBuild]::IsOsPlatform('Linux'))">
+      <PreprocessorDefines>-D LINUX</PreprocessorDefines>
+      <LinkArgs>-ldl -lnethost -lpthread -L&quot;$(NetHostDir)&quot; -Wl,-rpath,'$ORIGIN',--disable-new-dtags</LinkArgs>
+    </PropertyGroup>
+    <PropertyGroup Condition="$([MSBuild]::IsOsPlatform('OSX'))">
+      <PreprocessorDefines>-D OSX</PreprocessorDefines>
+      <LinkArgs>-ldl -lnethost -lpthread -L&quot;$(NetHostDir)&quot; -Wl,-rpath,'@loader_path'</LinkArgs>
+    </PropertyGroup>
+
+    <Exec Command="g++ $(SourceFiles) $(IncPaths) $(PreprocessorDefines) -std=c++11 -o &quot;$(NativeOutputFilePath)&quot; $(CompilerArgs) $(LinkArgs)"
+          WorkingDirectory="$(NativeObjDir)"
+          ConsoleToMsBuild="true" />
+
+    <Copy SourceFiles="$(NetHostDir)/$(NetHostName)"
+          DestinationFolder="$(NativeBinDir)"
+          SkipUnchangedFiles="True" />
+  </Target>
+
+  <Target Name="BuildNativeProjectWindows"
+          AfterTargets="Build"
+          DependsOnTargets="PrepareForNativeBuild;MSVCFindCompilerPaths"
+          Condition="$([MSBuild]::IsOsPlatform('Windows'))">
+    <PropertyGroup>
+      <IncPaths>@(MSVCIncludePaths-> '/I &quot;%(RootDir)%(Directory)%(Filename)&quot;', ' ')</IncPaths>
+      <IncPaths>$(IncPaths) /I inc /I &quot;$(NetHostDir)&quot;</IncPaths>
+      <CompilerArgs>/EHsc /Od /GS /sdl /Zi</CompilerArgs>
+      <PreprocessorDefines>/D WINDOWS</PreprocessorDefines>
+      <LibPaths>@(MSVCLibPaths-> '/LIBPATH:&quot;%(RootDir)%(Directory)%(Filename)&quot;', ' ')</LibPaths>
+      <LibPaths>$(LibPaths) &quot;$(NetHostDir)\nethost.lib&quot;</LibPaths>
+    </PropertyGroup>
+
+    <Exec Command="&quot;$(MSVCCompilerPath)&quot; $(SourceFiles) $(IncPaths) $(PreprocessorDefines) $(CompilerArgs) /link $(LibPaths) /out:&quot;$(NativeOutputFilePath)&quot;"
+          WorkingDirectory="$(NativeObjDir)"
+          ConsoleToMsBuild="true" />
+
+    <Copy SourceFiles="$(NetHostDir)/$(NetHostName)"
+          DestinationFolder="$(NativeBinDir)"
+          SkipUnchangedFiles="True" />
+  </Target>
+</Project>
+#+END_SRC
+
+#+NAME: App.csproj
+#+BEGIN_SRC xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <UseAppHost>false</UseAppHost>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputPath>$(BinRoot)/$(Configuration)/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+</Project>
+#+END_SRC
