@@ -54,17 +54,26 @@ public class AppAnalyzer
                 Arguments = traceFullPath,
                 CreateNoWindow = true,
                 FileName = analyzerExePath,
-                UseShellExecute = false,
-
-                // If we will further analyze and extract data, then there is no
-                // need to flood the user's terminal with the analyzer tool output.
-                RedirectStandardOutput = willAnalyzeFurther
+                RedirectStandardOutput = true,
+                UseShellExecute = false
             };
 
             toolRunner.StartInfo = psi;
             toolRunner.Start();
-            toolRunner.WaitForExit();
 
+            // If we will further analyze and extract data, then there is no
+            // need to flood the user's terminal with the analyzer tool output.
+
+            if (!willAnalyzeFurther)
+            {
+                while (!toolRunner.StandardOutput.EndOfStream)
+                {
+                    string line = toolRunner.StandardOutput.ReadLine();
+                    Console.WriteLine(line);
+                }
+            }
+
+            toolRunner.WaitForExit();
             exitCode = toolRunner.ExitCode;
         }
         return exitCode;

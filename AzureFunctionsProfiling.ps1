@@ -192,6 +192,9 @@ function Analyze-App()
     # Here is where we rely on the C# app to do the parsing.
     # *******************************************************
 
+    Write-Host "Here we will call the AppAnalyzer C# app to help us."
+    Write-Host "Under Construction! Coming Soon!"
+
     # $analyzerArgs = @($traceFullPath)
 
     # Write-Host "`nRunning $analyzerExePath $($analyzerArgs -Join ' ')"
