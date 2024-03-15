@@ -14,6 +14,7 @@ Param(
 
     [string]$analyzerName = "FunctionsColdStartProfileAnalyzer.exe",
     [string]$analyzerPath = (Get-Location),
+    [string[]]$options = @(),
 
     # Universal Parameters
 
@@ -170,6 +171,13 @@ function Analyze-App()
         return $false
     }
 
+    if (-not (Test-Path -Path $traceFullPath))
+    {
+        Write-Host "`nThe given trace file '$traceFullPath' was unfortunately" `
+                   "not found :(`n"
+        return $false
+    }
+
     # Display a nice banner indicating we're working on the 'Analyze' stage :)
     Print-Banner -StageName "ANALYZING"
 
@@ -180,12 +188,16 @@ function Analyze-App()
     Write-Host "Setting cwd to '$analyzerPath'..."
     Set-Location -Path $analyzerPath
 
-    $analyzerArgs = @($traceFullPath)
+    # *******************************************************
+    # Here is where we rely on the C# app to do the parsing.
+    # *******************************************************
 
-    Write-Host "`nRunning $analyzerExePath $($analyzerArgs -Join ' ')"
-    Start-Process -FilePath $analyzerExePath `
-                  -ArgumentList $analyzerArgs `
-                  -NoNewWindow -Wait
+    # $analyzerArgs = @($traceFullPath)
+
+    # Write-Host "`nRunning $analyzerExePath $($analyzerArgs -Join ' ')"
+    # Start-Process -FilePath $analyzerExePath `
+    #               -ArgumentList $analyzerArgs `
+    #               -NoNewWindow -Wait
 
     # Restore the original path of the terminal from which this script was run.
 
