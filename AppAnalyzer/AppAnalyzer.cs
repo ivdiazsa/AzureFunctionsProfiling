@@ -52,14 +52,14 @@ public class AppAnalyzer
       - args[2..]: Options for parsing and analyzing the coldstart profile result.
      */
 
-    static void TestMain(string[] args)
+    static void Main(string[] args)
     {
         string path = args[0];
-        ExtractInfoFromProfile(path, new string[] {"jit-time"});
+        ExtractInfoFromProfile(path, new string[] {"detailed-jit"});
         Console.Write("\n");
     }
 
-    static int Main(string[] args)
+    static int Main2(string[] args)
     {
         string analyzerExePath = args[0];
         string traceFullPath = args[1];
@@ -214,9 +214,20 @@ public class AppAnalyzer
 
     private static void DetailedJitTimes(string[] profileLines)
     {
+        Console.WriteLine("\n****************************");
+        Console.WriteLine("All Jitted Methods and Times");
+        Console.WriteLine("****************************");
+
         // The list of jitted methods and their times starts at least one line
         // after the label "Detailed JIT Times:".
         int jitTimesStart = Array.IndexOf(profileLines, detailedJitString);
         while (String.IsNullOrWhiteSpace(profileLines[++jitTimesStart])) ;
+
+        int index = jitTimesStart;
+        while (!String.IsNullOrWhiteSpace(profileLines[index]))
+        {
+            Console.WriteLine(profileLines[index]);
+            index++;
+        }
     }
 }
