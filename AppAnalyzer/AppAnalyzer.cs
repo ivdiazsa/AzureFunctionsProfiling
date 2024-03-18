@@ -1,10 +1,42 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 
 namespace AzureFunctionsProfiling;
 
 public class AppAnalyzer
 {
+    // I created this class just as a funny experiment, but we don't need it right now.
+    // I'm leaving it here as a comment, just in case we want to use it later.
+
+    /*
+    internal class JITData
+    {
+        public readonly string Name;
+        public readonly float TimeMsec;
+        public readonly int Count;
+
+        public JITData(string name, string time, string count)
+        {
+            Name = name;
+
+            if (!Double.TryParse(time, out TimeMsec))
+                Console.WriteLine($"Failed to parse JIT Time '{time}' :(");
+
+            // In the coldstart file, the JIT count comes in a string with the
+            // form of '(count:XYZ)'.
+            string[] countStrParts = count.Split(":");
+
+            if (!Int32.TryParse(countStrParts[1].TrimEnd(")"), out Count))
+                Console.WriteLine($"Failed to parse JIT count '{count}' :(");
+        }
+    }
+    */
+
+    const string coldStartExtension = ".coldstart";
+    const string jitTimeString = "JIT time during specialization";
+    const string detailedJitString = "Detailed JIT Times:";
+
     /*
       This analyzing and profiling app is expected to be called from the main
       Powershell script 'AzureFunctionsProfiling.ps1', which is located at the
@@ -20,6 +52,13 @@ public class AppAnalyzer
       - args[2..]: Options for parsing and analyzing the coldstart profile result.
      */
 
+    static void TestMain(string[] args)
+    {
+        string path = args[0];
+        ExtractInfoFromProfile(path, new string[] {"jit-time"});
+        Console.Write("\n");
+    }
+
     static int Main(string[] args)
     {
         string analyzerExePath = args[0];
@@ -32,13 +71,28 @@ public class AppAnalyzer
 
         bool willAnalyzeFurther = (args.Length > 2);
         int aec = RunAnalyzer(analyzerExePath, traceFullPath, willAnalyzeFurther);
+
+        if (aec != 0)
+        {
+            Console.WriteLine("\nSomething went wrong with the analyzer tool :(");
+            Console.WriteLine($"EXIT CODE: {aec}\n");
+            return aec;
+        }
+
         Console.WriteLine($"\nEXIT CODE: {aec}\n");
-        return aec;
+
+        if (willAnalyzeFurther)
+        {
+            string[] metrics = args[2..];
+            ExtractInfoFromProfile(traceFullPath + coldStartExtension, metrics);
+        }
+
+        return 0;
     }
 
     // **********************************************************************
     // RunAnalyzer(): This function runs the Azure Functions profiler app to
-    //                analyze the given trace.
+    // analyze the given trace.
     // **********************************************************************
 
     static int RunAnalyzer(string analyzerExePath,
@@ -77,5 +131,92 @@ public class AppAnalyzer
             exitCode = toolRunner.ExitCode;
         }
         return exitCode;
+    }
+
+    // **********************************************************************
+    // ExtractInfoFromProfile(): This function reads the received .coldstart
+    // file, and looks up the information requested by means of the received
+    // metrics flags. Then, it prints it to console.
+    // **********************************************************************
+
+    static void ExtractInfoFromProfile(string coldStartFile,
+                                       string[] metrics)
+    {
+        string[] lines = File.ReadAllLines(coldStartFile);
+
+        foreach (string m in metrics)
+        {
+            switch (m)
+            {
+                case "jit-time":
+                    JitTimeAndCount(lines);
+                    break;
+
+                case "detailed-jit":
+                    DetailedJitTimes(lines);
+                    break;
+
+                default:
+                    Console.WriteLine($"\nApologies, but metric {m} is not (yet)"
+                                      + " supported.");
+                    break;
+            }
+        }
+
+        // Console.WriteLine("\n[");
+        // foreach (string line in lines)
+        // {
+        //     Console.WriteLine($"\"{line}\"");
+        // }
+        // Console.WriteLine("]\n");
+    }
+
+    // ***************************************************************************
+    // JitTimeAndCount(): This function checks the lines of the profile log file,
+    // and parses them to retrieve the number of JIT methods and the time spent
+    // there in milliseconds (msec).
+    // ***************************************************************************
+
+    private static void JitTimeAndCount(string[] profileLines)
+    {
+        string[] jitTimeLines = Array.FindAll(profileLines,
+                                              x => x.Contains(jitTimeString));
+        if (jitTimeLines.Length < 1)
+        {
+            Console.WriteLine($"\nApologies, but there were no lines"
+                              + " found matching '{jitTimeString}' :(");
+            return ;
+        }
+
+        foreach (string line in jitTimeLines)
+        {
+            // Each jit time line comes in the format of:
+            // "<Whose> JIT time during specialization msec: abc.def (count:XYZ)"
+            string[] words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            // "<Whose>" may be compose of one or more words, so the way to know
+            // it for the name is to find the word "JIT", since it is guaranteed
+            // it will be the word after the name.
+            string name = String.Join(' ', words[0..Array.IndexOf(words, "JIT")]);
+
+            // In the coldstart file, the JIT count comes in a string with the
+            // form of '(count:XYZ)'.
+            string count = words[^1].Split(':')[^1].TrimEnd(')');
+            string msec = words[^2];
+
+            Console.WriteLine($"\n{new string('*', name.Length)}");
+            Console.WriteLine(name);
+            Console.WriteLine($"{new string('*', name.Length)}");
+            Console.WriteLine($"JIT Time Msec: {msec}");
+            Console.WriteLine($"JIT Count: {count}");
+        }
+    }
+
+    private static void DetailedJitTimes(string[] profileLines)
+    {
+        // The list of jitted methods and their times starts at least one line
+        // after the label "Detailed JIT Times:".
+        int jitTimesStart = Array.IndexOf(profileLines, detailedJitString);
+        while (String.IsNullOrWhiteSpace(profileLines[++jitTimesStart])) ;
     }
 }

@@ -192,6 +192,8 @@ function Analyze-App()
     # Here is where we rely on the C# app to do the parsing.
     # *******************************************************
 
+    # We should also check if it has been built, and build it if not.
+
     Write-Host "Here we will call the AppAnalyzer C# app to help us."
     Write-Host "Under Construction! Coming Soon!"
 
