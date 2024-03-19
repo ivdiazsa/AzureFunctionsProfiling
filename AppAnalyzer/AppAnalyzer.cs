@@ -55,7 +55,22 @@ public class AppAnalyzer
     static void Main(string[] args)
     {
         string path = args[0];
-        ExtractInfoFromProfile(path, new string[] {"detailed-jit"});
+        // ExtractInfoFromProfile(path, new string[] {"detailed-jit"});
+
+        string[] contents = File.ReadAllLines(path);
+        string[] headers = new string[] { "Jitted Method", "Time" };
+        int[] sizes = { 50, 50 };
+
+        TableArranger table = new TableArranger(contents, headers, sizes, " : ");
+        foreach (var row in table.Contents)
+        {
+            foreach (var cell in row)
+            {
+                Console.Write($"| {cell.Contents}/{cell.WrapsNeeded} |");
+            }
+            Console.Write("\n");
+        }
+
         Console.Write("\n");
     }
 

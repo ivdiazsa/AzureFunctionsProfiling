@@ -184,15 +184,24 @@ function Analyze-App()
     # We save the place where this script was called from to keep the user's environment
     # consistent and undisrupted.
     $originalDir = (Get-Location)
+    $scriptDir = Split-Path $($MyInvocation.MyCommand.Path) -Parent
+    $appAnalyzerExePath = (Join-Path $scriptDir "AppAnalyzer" "out")
 
-    Write-Host "Setting cwd to '$analyzerPath'..."
-    Set-Location -Path $analyzerPath
+    Write-Host "Setting cwd to '$scriptDir'..."
+    Set-Location -Path $scriptDir
 
     # *******************************************************
     # Here is where we rely on the C# app to do the parsing.
     # *******************************************************
 
     # We should also check if it has been built, and build it if not.
+
+    if (-not (Test-Path -Path $appAnalyzerExePath))
+    {
+        Start-Process -FilePath "dotnet" `
+                      -ArgumentList @("build", "-c", "Release", "-o", "out") `
+                      -NoNewWindow -Wait
+    }
 
     Write-Host "Here we will call the AppAnalyzer C# app to help us."
     Write-Host "Under Construction! Coming Soon!"
