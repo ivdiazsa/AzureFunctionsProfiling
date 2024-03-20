@@ -158,6 +158,10 @@ public class AppAnalyzer
                     DetailedJitTimes(lines);
                     break;
 
+                case "condensed-jit":
+                    CondensedJitTimes(lines);
+                    break;
+
                 default:
                     Console.WriteLine($"\nApologies, but metric {m} is not (yet)"
                                       + " supported.");
@@ -219,6 +223,41 @@ public class AppAnalyzer
         Console.WriteLine("All Jitted Methods and Times");
         Console.WriteLine("****************************");
 
+        string[] allMethods = GetJittedMethodsList(profileLines);
+
+        TableArranger table = new TableArranger(
+            entries: allMethods,
+            headers: new string[] { "Jitted Methods", "Jitting Time" },
+            lengths: new int[] { -1, -1 },
+            rawDelimiter: " : ");
+
+        table.DisplayTable();
+    }
+
+    // ****************************************************************************
+    // SummarizedJitTimes(): In JIT profiles and traces, it is not uncommon to see
+    // methods jitted more than once. This function retrieves the whole list like
+    // DetailedJitTimes() above does, but instead of printing it as is, it will
+    // only print each method once. It will show a counter of how many times it was
+    // found, and the total time spent on that method, with all occurrences
+    // aggregated together.
+    // ****************************************************************************
+
+    private static void CondensedJitTimes(string[] profileLines)
+    {
+        Console.WriteLine("\n************************************************");
+        Console.WriteLine("Condensed Jitted Methods, Times, and Occurrences");
+        Console.WriteLine("************************************************");
+
+        string[] allMethods = GetJittedMethodsList(profileLines);
+
+        // Implement the summing up and all that stuff here.
+
+        return ;
+    }
+
+    private static string[] GetJittedMethodsList(string[] profileLines)
+    {
         // The list of jitted methods and their times starts at least one line
         // after the label "Detailed JIT Times:".
         int jitTimesStart = Array.IndexOf(profileLines, detailedJitString);
@@ -235,12 +274,6 @@ public class AppAnalyzer
             index++;
         }
 
-        TableArranger table = new TableArranger(
-            entries: jittedMethodsList.ToArray(),
-            headers: new string[] { "Jitted Methods", "Jitting Time" },
-            lengths: new int[] { -1, -1 },
-            rawDelimiter: " : ");
-
-        table.DisplayTable();
+        return jittedMethodsList.ToArray();
     }
 }
