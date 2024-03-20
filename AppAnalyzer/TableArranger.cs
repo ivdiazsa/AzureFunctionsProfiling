@@ -7,7 +7,7 @@ public class TableArranger
     public class Cell
     {
         // The text of the cell.
-        public string Contents { get; private set; }
+        public string Text { get; private set; }
 
         // If we want to limit a certain column(s) to an x amount of characters,
         // then that is specified in this field. If this is set to a negative
@@ -24,7 +24,7 @@ public class TableArranger
 
         public Cell(string contents = "<Cell>", int maxLength = -1)
         {
-            Contents = contents;
+            Text = contents;
             MaxLength = maxLength;
             WrapsNeeded = (contents.Length <= maxLength) || (maxLength < 0)
                         ? 0 : (int) (contents.Length / maxLength);
@@ -40,8 +40,6 @@ public class TableArranger
     // final table.
     public List<List<Cell>> Contents { get; set; }
 
-    // private List<int> _maxColumnSizes;
-
     // These are just to customize how we want our table to look when we print it :)
     private string _rowSeparator;
     private string _colSeparator;
@@ -53,7 +51,6 @@ public class TableArranger
         NumRows = 1;
         Contents = new List<List<Cell>>();
 
-        // _maxColumnSizes = new List<int>();
         _rowSeparator = "-";
         _colSeparator = "|";
         _cornerMarker = "+";
@@ -65,17 +62,17 @@ public class TableArranger
 
     public TableArranger(string[] entries,
                          string[] headers,
-                         int[] sizes,
+                         int[] lengths,
                          string rawDelimiter = " ") : this()
     {
-        CreateTableFromData(entries, headers, sizes, rawDelimiter);
+        CreateTableFromData(entries, headers, lengths, rawDelimiter);
     }
 
-    public void AddColumn(string colContents = "<Column>", int maxSize = -1)
+    public void AddColumn(string colText = "<Column>", int maxLen = -1)
     {
         // The top row contains the headers, so we add it the cell with the name
         // of the column there.
-        Contents[0].Add(new Cell(colContents, maxSize));
+        Contents[0].Add(new Cell(colText, maxLen));
         NumColumns++;
 
         // If we're adding a column after we already have data, we have to update
@@ -86,33 +83,34 @@ public class TableArranger
         }
     }
 
-    public void AddRow(string[] values, List<int> sizes)
+    public void AddRow(string[] values, List<int> lengths)
     {
         List<Cell> row = new List<Cell>(values.Length);
 
         for (int i = 0; i < values.Length; i++)
         {
-            row.Add(new Cell(values[i], sizes[i]));
+            row.Add(new Cell(values[i], lengths[i]));
         }
 
         Contents.Add(row);
+        NumRows++;
     }
 
     private void CreateTableFromData(string[] entries,
                                      string[] headers,
-                                     int[] sizes,
+                                     int[] lengths,
                                      string rawDelimiter)
     {
         List<string> headersList = headers.ToList();
-        List<int> sizesList = sizes.ToList();
-        CheckAndBalanceColumnsAndLengths(headersList, sizesList);
+        List<int> lengthsList = lengths.ToList();
+        CheckAndBalanceColumnsAndLengths(headersList, lengthsList);
 
         // First add all the headers to the first row of the table, which has
         // already been created by the default constructor called with "this()".
 
         for (int i = 0; i < headersList.Count; i++)
         {
-            AddColumn(headersList[i], sizesList[i]);
+            AddColumn(headersList[i], lengthsList[i]);
         }
 
         // This is the main core of creating a table from provided data. We read
@@ -123,14 +121,14 @@ public class TableArranger
         foreach (string rowData in entries)
         {
             string[] cellsData = rowData.Split(rawDelimiter);
-            AddRow(cellsData, sizesList);
+            AddRow(cellsData, lengthsList);
         }
     }
 
-    private void CheckAndBalanceColumnsAndLengths(List<string> headers, List<int> sizes)
+    private void CheckAndBalanceColumnsAndLengths(List<string> headers, List<int> lengths)
     {
         int numCols = headers.Count;
-        int numColMaxLengths = sizes.Count;
+        int numColMaxLengths = lengths.Count;
 
         if (numCols == numColMaxLengths) return ;
 
@@ -144,14 +142,98 @@ public class TableArranger
             Console.WriteLine($"There are {difference} less columns than lengths"
                               + " provided. The last {difference} lengths will be"
                               + " ignored.");
-            sizes.RemoveRange(sizes.Count - difference, difference);
+            lengths.RemoveRange(lengths.Count - difference, difference);
         }
         else
         {
             Console.WriteLine($"There are {difference} less lengths than columns"
                               + " provided. The last {difference} columns will be"
                               + " set to have no character limit (i.e. -1).");
-            sizes.AddRange(Enumerable.Repeat(-1, difference));
+            lengths.AddRange(Enumerable.Repeat(-1, difference));
+        }
+    }
+
+    public void DisplayTable(bool separateAllRows = true)
+    {
+        // First things first. If we have any column(s) without size limits, then
+        // we need to figure it out by finding the longest string in it, and use
+        // its length as limit.
+        SetLengthsToUnlimitedColumns();
+
+        // What we've all been expecting: Print the table!
+        DisplayHeaders();
+        for (int i = 1; i < NumRows - 1; i++)
+        {
+            DisplayRow(Contents[i]);
+        }
+
+        DisplayRow(Contents[NumRows - 1], true);
+        Console.Write("\n");
+    }
+
+    // NOTE: Need to comment this one :)
+    private void DisplayHeaders()
+    {
+        DisplayRowSeparator(true);
+        DisplayRow(Contents[0], true);
+    }
+
+    private void DisplayRow(List<Cell> row, bool isHeaderOrFooter = false)
+    {
+        Console.Write(_colSeparator);
+
+        // Will implement the wrapping later. I need to finish the base functionality
+        // today, and I already got more work.
+        foreach (Cell c in row)
+        {
+            // For all cells smaller than the longest text, we need to pad them,
+            // so they fit the cell size accordingly.
+            string textToPrint = c.Text.PadRight(c.MaxLength);
+            Console.Write($" {textToPrint} {_colSeparator}");
+        }
+
+        Console.Write("\n");
+        DisplayRowSeparator(isHeaderOrFooter);
+    }
+
+    private void DisplayRowSeparator(bool isHeaderOrFooter = false)
+    {
+        string delimiter = isHeaderOrFooter ? _cornerMarker : _colSeparator;
+        Console.Write(delimiter);
+
+        foreach (Cell c in Contents[0])
+        {
+            // We're adding +2 to the amount of characters because we're going to
+            // pad each cell with a heading and a trailing space. Just to improve
+            // the text's readability.
+
+            Console.Write(String.Join("", Enumerable.Repeat(_rowSeparator,
+                                                            c.MaxLength + 2)));
+            Console.Write(delimiter);
+        }
+
+        Console.Write("\n");
+    }
+
+    private void SetLengthsToUnlimitedColumns()
+    {
+        for (int i = 0; i < NumColumns; i++)
+        {
+            int columnSize = Contents[0][i].MaxLength;
+
+            // If said column has a set size, then there's nothing else to prepare.
+            if (columnSize > 0)
+                continue;
+
+            // Search that column in all the rows in the table to find the
+            // longest text.
+            int newColumnSize = Contents.Max(row => row[i].Text.Length);
+
+            // Finally, we set the newly calculated length to our cell objects.
+            for (int j = 0; j < NumRows; j++)
+            {
+                Contents[j][i].MaxLength = newColumnSize;
+            }
         }
     }
 }

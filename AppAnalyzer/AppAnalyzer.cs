@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
@@ -59,19 +60,10 @@ public class AppAnalyzer
 
         string[] contents = File.ReadAllLines(path);
         string[] headers = new string[] { "Jitted Method", "Time" };
-        int[] sizes = { 50, 50 };
+        int[] sizes = { -1, -1 };
 
         TableArranger table = new TableArranger(contents, headers, sizes, " : ");
-        foreach (var row in table.Contents)
-        {
-            foreach (var cell in row)
-            {
-                Console.Write($"| {cell.Contents}/{cell.WrapsNeeded} |");
-            }
-            Console.Write("\n");
-        }
-
-        Console.Write("\n");
+        table.DisplayTable();
     }
 
     static int Main2(string[] args)
@@ -104,11 +96,6 @@ public class AppAnalyzer
 
         return 0;
     }
-
-    // **********************************************************************
-    // RunAnalyzer(): This function runs the Azure Functions profiler app to
-    // analyze the given trace.
-    // **********************************************************************
 
     static int RunAnalyzer(string analyzerExePath,
                            string traceFullPath,
@@ -177,13 +164,6 @@ public class AppAnalyzer
                     break;
             }
         }
-
-        // Console.WriteLine("\n[");
-        // foreach (string line in lines)
-        // {
-        //     Console.WriteLine($"\"{line}\"");
-        // }
-        // Console.WriteLine("]\n");
     }
 
     // ***************************************************************************
@@ -227,6 +207,12 @@ public class AppAnalyzer
         }
     }
 
+    // ********************************************************************************
+    // DetailedJitTimes(): This function retrieves the list of all the Jitted methods,
+    // and prints them out in a table. This table is custom made and the code is in
+    // the TableArranger class.
+    // ********************************************************************************
+
     private static void DetailedJitTimes(string[] profileLines)
     {
         Console.WriteLine("\n****************************");
@@ -239,10 +225,22 @@ public class AppAnalyzer
         while (String.IsNullOrWhiteSpace(profileLines[++jitTimesStart])) ;
 
         int index = jitTimesStart;
+        List<string> jittedMethodsList = new List<string>();
+
+        // Store all the Jitted Methods information, so that we can afterwards
+        // pass it to the table maker.
         while (!String.IsNullOrWhiteSpace(profileLines[index]))
         {
-            Console.WriteLine(profileLines[index]);
+            jittedMethodsList.Add(profileLines[index]);
             index++;
         }
+
+        TableArranger table = new TableArranger(
+            entries: jittedMethodsList.ToArray(),
+            headers: new string[] { "Jitted Methods", "Jitting Time" },
+            lengths: new int[] { -1, -1 },
+            rawDelimiter: " : ");
+
+        table.DisplayTable();
     }
 }
