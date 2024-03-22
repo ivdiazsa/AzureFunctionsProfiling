@@ -7,32 +7,26 @@ namespace AzureFunctionsProfiling;
 
 public class AppAnalyzer
 {
-    // I created this class just as a funny experiment, but we don't need it right now.
-    // I'm leaving it here as a comment, just in case we want to use it later.
-
-    /*
-    internal class JITData
+    // Little class to keep track of the stats of a specific Jitted method.
+    // Currently used for the condensed JIT stats.
+    private class JittedMethodInfo
     {
-        public readonly string Name;
-        public readonly float TimeMsec;
-        public readonly int Count;
+        public string Name { get; init; }
+        public double TimeMsec { get; set; }
+        public int FoundCount { get; set; }
 
-        public JITData(string name, string time, string count)
+        public JittedMethodInfo(string name, double msec)
         {
             Name = name;
+            TimeMsec = msec;
+            FoundCount = 1;
+        }
 
-            if (!Double.TryParse(time, out TimeMsec))
-                Console.WriteLine($"Failed to parse JIT Time '{time}' :(");
-
-            // In the coldstart file, the JIT count comes in a string with the
-            // form of '(count:XYZ)'.
-            string[] countStrParts = count.Split(":");
-
-            if (!Int32.TryParse(countStrParts[1].TrimEnd(")"), out Count))
-                Console.WriteLine($"Failed to parse JIT count '{count}' :(");
+        public string ToTableCSVFormat()
+        {
+            return $"{Name} , {TimeMsec} , {FoundCount}";
         }
     }
-    */
 
     const string coldStartExtension = ".coldstart";
     const string jitTimeString = "JIT time during specialization";
@@ -55,14 +49,19 @@ public class AppAnalyzer
 
     static void Main(string[] args)
     {
+        // string path = args[0];
+        // string[] metrics = new string[] { "detailed-jit" };
+        // ExtractInfoFromProfile(path, metrics);
+
         string path = args[0];
-        // ExtractInfoFromProfile(path, new string[] {"detailed-jit"});
+        string[] allMethods = File.ReadAllLines(path);
 
-        string[] contents = File.ReadAllLines(path);
-        string[] headers = new string[] { "Jitted Method", "Time" };
-        int[] sizes = { -1, -1 };
+        TableArranger table = new TableArranger(
+            entries: allMethods,
+            headers: new string[] { "Jitted Methods", "Jitting Time" },
+            lengths: new int[] { 80, 30 },
+            rawDelimiter: " : ");
 
-        TableArranger table = new TableArranger(contents, headers, sizes, " : ");
         table.DisplayTable();
     }
 
@@ -164,7 +163,7 @@ public class AppAnalyzer
 
                 default:
                     Console.WriteLine($"\nApologies, but metric {m} is not (yet)"
-                                      + " supported.");
+                                      + " supported.\n");
                     break;
             }
         }
@@ -183,7 +182,7 @@ public class AppAnalyzer
         if (jitTimeLines.Length < 1)
         {
             Console.WriteLine($"\nApologies, but there were no lines"
-                              + " found matching '{jitTimeString}' :(");
+                              + " found matching '{jitTimeString}' :(\n");
             return ;
         }
 
@@ -217,11 +216,11 @@ public class AppAnalyzer
     // the TableArranger class.
     // ********************************************************************************
 
-    private static void DetailedJitTimes(string[] profileLines)
+    private static void DetailedJitTimes(string[] profileLines, string delimiter = " : ")
     {
         Console.WriteLine("\n****************************");
         Console.WriteLine("All Jitted Methods and Times");
-        Console.WriteLine("****************************");
+        Console.WriteLine("****************************\n");
 
         string[] allMethods = GetJittedMethodsList(profileLines);
 
@@ -229,7 +228,7 @@ public class AppAnalyzer
             entries: allMethods,
             headers: new string[] { "Jitted Methods", "Jitting Time" },
             lengths: new int[] { -1, -1 },
-            rawDelimiter: " : ");
+            rawDelimiter: delimiter);
 
         table.DisplayTable();
     }
@@ -243,17 +242,64 @@ public class AppAnalyzer
     // aggregated together.
     // ****************************************************************************
 
-    private static void CondensedJitTimes(string[] profileLines)
+    private static void CondensedJitTimes(string[] profileLines, string delimiter = " : ")
     {
         Console.WriteLine("\n************************************************");
         Console.WriteLine("Condensed Jitted Methods, Times, and Occurrences");
-        Console.WriteLine("************************************************");
+        Console.WriteLine("************************************************\n");
 
         string[] allMethods = GetJittedMethodsList(profileLines);
 
-        // Implement the summing up and all that stuff here.
+        // Use the classic Dictionary to keep track of how many times we've found
+        // each method, as well as the total time all their instances took. Then,
+        // construct a string array with each entry joined by the delimiter being
+        // an element. I know this is highly inefficient and it's high on my list
+        // of improvements to make to my TableArranger class: Be able to also
+        // receive 2D list-like objects as inputs.
 
-        return ;
+        var methodsData = new Dictionary<string, JittedMethodInfo>();
+
+        foreach (string jm in allMethods)
+        {
+            string[] jmFields = jm.Split(delimiter);
+            string jmName = jmFields[0];
+            JittedMethodInfo jmInfo = null;
+
+            // The Azure Functions profiling tool should guarantee we will be
+            // getting a valid floating-point number.
+            double jmMsec = Double.Parse(jmFields[1]);
+
+            if (methodsData.TryGetValue(jmName, out jmInfo))
+            {
+                // Update the previously acquired information by adding this method's
+                // instance's time. Also, increase the found count +1.
+                jmInfo.TimeMsec += jmMsec;
+                jmInfo.FoundCount++;
+            }
+            else
+            {
+                // Otherwise, add it to the dictionary.
+                methodsData.Add(jmName, new JittedMethodInfo(jmName, jmMsec));
+            }
+        }
+
+        // Convert our dictionary to a string array that the TableArranger class
+        // can understand.
+        string[] forTable = new string[methodsData.Count];
+        int index = 0;
+
+        foreach (JittedMethodInfo jmi in methodsData.Values)
+        {
+            forTable[index++] = jmi.ToTableCSVFormat();
+        }
+
+        TableArranger table = new TableArranger(
+            entries: forTable,
+            headers: new string[] { "Jitted Methods", "Total Msec", "Total Count" },
+            lengths: new int[] { -1, -1, -1 },
+            rawDelimiter: " , ");
+
+        table.DisplayTable();
     }
 
     private static string[] GetJittedMethodsList(string[] profileLines)

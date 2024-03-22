@@ -2,12 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+// TODO: Since we are allowing certain fields to be set from outside the class,
+//       as part of the flexibility efforts, some of those might need some additional
+//       modifying, like.
+
 public class TableArranger
 {
     public class Cell
     {
         // The text of the cell.
-        public string Text { get; private set; }
+        public string Text { get; set; }
 
         // If we want to limit a certain column(s) to an x amount of characters,
         // then that is specified in this field. If this is set to a negative
@@ -38,7 +42,7 @@ public class TableArranger
     // case, we're using a 2D List because we're also supporting adding new rows
     // and columns on the fly. Hence, we can't know beforehand the size of the
     // final table.
-    public List<List<Cell>> Contents { get; set; }
+    public List<List<Cell>> Contents { get; private set; }
 
     // These are just to customize how we want our table to look when we print it :)
     private string _rowSeparator;
@@ -121,6 +125,16 @@ public class TableArranger
         foreach (string rowData in entries)
         {
             string[] cellsData = rowData.Split(rawDelimiter);
+
+            // Ensure the given delimiter split the data appropriately. I already
+            // had an issue that took a bit to discover and fix.
+            if (cellsData.Length != NumColumns)
+            {
+                throw new ArgumentOutOfRangeException(
+                    $"Number of cells \"{cellsData.Length}\" in \"{rowData}\" does not"
+                    + $" match the table's number of columns \"{NumColumns}\".");
+            }
+
             AddRow(cellsData, lengthsList);
         }
     }
@@ -164,14 +178,13 @@ public class TableArranger
         DisplayHeaders();
         for (int i = 1; i < NumRows - 1; i++)
         {
-            DisplayRow(Contents[i]);
+            DisplayRow(Contents[i], false);
         }
 
         DisplayRow(Contents[NumRows - 1], true);
         Console.Write("\n");
     }
 
-    // NOTE: Need to comment this one :)
     private void DisplayHeaders()
     {
         DisplayRowSeparator(true);
@@ -181,38 +194,98 @@ public class TableArranger
     private void DisplayRow(List<Cell> row, bool isHeaderOrFooter = false)
     {
         Console.Write(_colSeparator);
+        int[] partialCells = new int[NumColumns];
 
         // Will implement the wrapping later. I need to finish the base functionality
         // today, and I already got more work.
-        foreach (Cell c in row)
+        for (int i = 0; i < row.Count; i++)
         {
-            // For all cells smaller than the longest text, we need to pad them,
-            // so they fit the cell size accordingly.
-            string textToPrint = c.Text.PadRight(c.MaxLength);
-            Console.Write($" {textToPrint} {_colSeparator}");
+            Cell c = row[i];
+            partialCells[i] = c.WrapsNeeded;
+
+            // For all cells smaller than the longest text or set character limit,
+            // we need to pad them, so they fit the cell size accordingly. And for
+            // larger ones, we have to trim them to the limit set.
+
+            string textToPrint = c.WrapsNeeded > 0 ? c.Text.Substring(0, c.MaxLength)
+                                                   : c.Text;
+            Console.Write($" {textToPrint.PadRight(c.MaxLength)} {_colSeparator}");
         }
 
         Console.Write("\n");
+        int finalWraps = partialCells.Max();
+
+        if (finalWraps <= 0)
+        {
+            DisplayRowSeparator(isHeaderOrFooter);
+            return ;
+        }
+
+        // We need as many new "partial rows" as the maximum number of wraps
+        // needed in this row. One for each wrap.
+        for (int j = 0; j < finalWraps; j++)
+        {
+            Console.Write(_colSeparator);
+
+            for (int k = 0; k < partialCells.Length; k++)
+            {
+                Cell c = row[k];
+
+                // If this cell doesn't need any (more) wraps, then just fill
+                // its content with whitespace.
+                if (partialCells[k] == 0)
+                {
+                    // Adding a +2 here to account for the leading and trailing
+                    // blank spaces.
+                    Console.Write(new String(' ', c.MaxLength + 2)
+                                  + _colSeparator);
+                    continue;
+                }
+
+                // If there's yet another wrap pending, display the next segment.
+                // Otherwise, display the rest of the string. We have to make this
+                // distinction because if the next segment is shorter, then we would
+                // get an ArgumentOutOfRangeException.
+                string nextWrapText = c.Text.Substring(
+                    c.MaxLength * (j+1),
+                    Math.Min(c.MaxLength * (j+2), c.Text.Length - 1));
+
+                Console.Write($" {nextWrapText.PadRight(c.MaxLength)} {_colSeparator}");
+
+                // Decrement by one because this wrap has been taken care of.
+                partialCells[k]--;
+            }
+            Console.Write("\n");
+        }
         DisplayRowSeparator(isHeaderOrFooter);
     }
 
-    private void DisplayRowSeparator(bool isHeaderOrFooter = false)
+    private void DisplayRowSeparator(bool isHeaderOrFooter = false,
+                                     bool thickEdges = false)
     {
         string delimiter = isHeaderOrFooter ? _cornerMarker : _colSeparator;
-        Console.Write(delimiter);
+        int thickness = (isHeaderOrFooter & thickEdges) ? 2 : 1;
 
-        foreach (Cell c in Contents[0])
+        // We want to emphasize the table's headers and footers by making their
+        // borders twice as thick.
+
+        for (int i = 0; i < thickness; i++)
         {
-            // We're adding +2 to the amount of characters because we're going to
-            // pad each cell with a heading and a trailing space. Just to improve
-            // the text's readability.
-
-            Console.Write(String.Join("", Enumerable.Repeat(_rowSeparator,
-                                                            c.MaxLength + 2)));
             Console.Write(delimiter);
-        }
 
-        Console.Write("\n");
+            foreach (Cell c in Contents[0])
+            {
+                // We're adding +2 to the amount of characters because we're going to
+                // pad each cell with a heading and a trailing space. Just to improve
+                // the text's readability.
+
+                Console.Write(String.Join("", Enumerable.Repeat(_rowSeparator,
+                                                                c.MaxLength + 2)));
+                Console.Write(delimiter);
+            }
+
+            Console.Write("\n");
+        }
     }
 
     private void SetLengthsToUnlimitedColumns()
