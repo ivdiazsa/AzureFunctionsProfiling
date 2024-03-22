@@ -14,7 +14,7 @@ Param(
 
     [string]$analyzerName = "FunctionsColdStartProfileAnalyzer.exe",
     [string]$analyzerPath = (Get-Location),
-    [string[]]$options = @(),
+    [ValidateSet("jit-time","detailed-jit","condensed-jit")][string[]]$options = @(),
 
     # Universal Parameters
 
@@ -64,9 +64,10 @@ function Validate-RunPaths()
 
 function Print-Banner([string]$StageName)
 {
-    Write-Host "`n$(""*"" * 50)"
-    Write-Host "STARTING $StageName STAGE"
-    Write-Host "$(""*"" * 50)`n"
+    $banner = "STARTING $StageName STAGE"
+    Write-Host "`n$(""*"" * $banner.Length)"
+    Write-Host $banner
+    Write-Host "$(""*"" * $banner.Length)`n"
 }
 
 # ****************
@@ -184,11 +185,11 @@ function Analyze-App()
     # We save the place where this script was called from to keep the user's environment
     # consistent and undisrupted.
     $originalDir = (Get-Location)
-    $scriptDir = Split-Path $($MyInvocation.MyCommand.Path) -Parent
-    $appAnalyzerExePath = (Join-Path $scriptDir "AppAnalyzer" "out")
+    $appAnalyzerDir = (Join-Path $PSScriptRoot "AppAnalyzer")
+    $appAnalyzerExePath = (Join-Path $appAnalyzerDir "out")
 
-    Write-Host "Setting cwd to '$scriptDir'..."
-    Set-Location -Path $scriptDir
+    Write-Host "Setting cwd to '$appAnalyzerDir'..."
+    Set-Location -Path $appAnalyzerDir
 
     # *******************************************************
     # Here is where we rely on the C# app to do the parsing.
@@ -203,19 +204,16 @@ function Analyze-App()
                       -NoNewWindow -Wait
     }
 
-    Write-Host "Here we will call the AppAnalyzer C# app to help us."
-    Write-Host "Under Construction! Coming Soon!"
+    # Write-Host "Here we will call the AppAnalyzer C# app to help us."
+    # Write-Host "Under Construction! Coming Soon!"
 
-    # $analyzerArgs = @($traceFullPath)
-
-    # Write-Host "`nRunning $analyzerExePath $($analyzerArgs -Join ' ')"
-    # Start-Process -FilePath $analyzerExePath `
-    #               -ArgumentList $analyzerArgs `
-    #               -NoNewWindow -Wait
+    Start-Process -FilePath (Join-Path $appAnalyzerExePath "AppAnalyzer.exe") `
+                  -ArgumentList (@($analyzerExePath, $traceFullPath) + $options) `
+                  -NoNewWindow -Wait
 
     # Restore the original path of the terminal from which this script was run.
 
-    Write-Host "Restoring cwd to '$originalDir'..."
+    Write-Host "`nRestoring cwd to '$originalDir'..."
     Set-Location -Path $originalDir
 }
 
@@ -223,7 +221,7 @@ function Analyze-App()
 # Main App Script!
 # *****************
 
-Write-Host "`nLaunching script...`n"
+Write-Host "`nLaunching script..."
 
 # I want to give my team the liberty of passing the trace path as either the
 # folder containing the traces, or the trace file itself, using the '-tracePath'
