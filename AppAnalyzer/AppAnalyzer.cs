@@ -54,15 +54,18 @@ public class AppAnalyzer
         // ExtractInfoFromProfile(path, metrics);
 
         string path = args[0];
-        string[] allMethods = File.ReadAllLines(path);
+        string[] metrics = new string[] { "condensed-jit" };
+        ExtractInfoFromProfile(path, metrics);
 
-        TableArranger table = new TableArranger(
-            entries: allMethods,
-            headers: new string[] { "Jitted Methods", "Jitting Time" },
-            lengths: new int[] { 80, 30 },
-            rawDelimiter: " : ");
+        // string[] allMethods = File.ReadAllLines(path);
 
-        table.DisplayTable();
+        // TableArranger table = new TableArranger(
+        //     entries: allMethods,
+        //     headers: new string[] { "Jitted Methods", "Jitting Time" },
+        //     lengths: new int[] { 80, 30 },
+        //     rawDelimiter: " : ");
+
+        // table.DisplayTable();
     }
 
     static int Main2(string[] args)
@@ -227,7 +230,7 @@ public class AppAnalyzer
         TableArranger table = new TableArranger(
             entries: allMethods,
             headers: new string[] { "Jitted Methods", "Jitting Time" },
-            lengths: new int[] { -1, -1 },
+            lengths: new int[] { 80, 30 },
             rawDelimiter: delimiter);
 
         table.DisplayTable();
@@ -296,7 +299,7 @@ public class AppAnalyzer
         TableArranger table = new TableArranger(
             entries: forTable,
             headers: new string[] { "Jitted Methods", "Total Msec", "Total Count" },
-            lengths: new int[] { -1, -1, -1 },
+            lengths: new int[] { 80, 30, 5 },
             rawDelimiter: " , ");
 
         table.DisplayTable();
