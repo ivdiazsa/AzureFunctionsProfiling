@@ -127,6 +127,7 @@ function Run-App()
     $perfviewCaptureArgs = @(
         "/DataFile:""$traceFullPath""",
         "/BufferSizeMB:256",
+        "/LogFile:$traceFullPath.log",
         "/StackCompression",
         "/CircularMB:500",
         "/Providers:""$($providers -Join ',')""",
@@ -199,9 +200,11 @@ function Analyze-App()
 
     if (-not (Test-Path -Path $appAnalyzerExePath))
     {
+        Write-Host ""
         Start-Process -FilePath "dotnet" `
                       -ArgumentList @("build", "-c", "Release", "-o", "out") `
                       -NoNewWindow -Wait
+        Write-Host "`nFinished building the dotnet app!"
     }
 
     # Write-Host "Here we will call the AppAnalyzer C# app to help us."
