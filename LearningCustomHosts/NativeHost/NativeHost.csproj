@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <NativeBinDir>$(BinsDir)</NativeBinDir>
+    <NativeOutputName>nativehost</NativeOutputName>
+    <NativeObjDir>$(MSBuildThisFileDirectory)obj/</NativeObjDir>
+    <NativeHostDir>$(MSBuildThisFileDirectory)</NativeHostDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(SourceDir)TestApp/TestApp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <NativeSource Include="nativehost.cpp" />
+    <Clean Include="$(NativeBinDir)$(NativeOutputName).*" />
+    <Clean Include="$(NativeObjDir)*.*" />
+  </ItemGroup>
+
+  <Target Name="PrepareForNativeBuild">
+    <PropertyGroup>
+      <NativeOutputFilePath>$(NativeBinDir)$(NativeOutputName)</NativeOutputFilePath>
+      <SourceFiles>@(NativeSource-> '&quot;%(RootDir)%(Directory)%(Filename)%(Extension)&quot;', ' ')</SourceFiles>
+      <NetHostDir>$(NetCoreTargetingPackRoot)/Microsoft.NETCore.App.Host.$(NETCoreSdkRuntimeIdentifier)/$(BundledNETCoreAppPackageVersion)/runtimes/$(NETCoreSdkRuntimeIdentifier)/native</NetHostDir>
+      <NetHostName>libnethost.so</NetHostName>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(NativeBinDir)" />
+    <MakeDir Directories="$(NativeObjDir)" />
+  </Target>
+
+  <Target Name="BuildNativeProject"
+          AfterTargets="Build"
+          DependsOnTargets="PrepareForNativeBuild">
+
+    <PropertyGroup>
+      <IncPaths>-I$(NativeHostDir)runtime_includes -I&quot;$(NetHostDir)&quot;</IncPaths>
+      <CompilerArgs>-g</CompilerArgs>
+      <PreprocessorDefines>-D LINUX</PreprocessorDefines>
+      <LinkArgs>-ldl -lnethost -lpthread -L&quot;$(NetHostDir)&quot; -Wl,-rpath,'$ORIGIN',--disable-new-dtags</LinkArgs>
+    </PropertyGroup>
+
+    <Exec Command="g++ $(SourceFiles) $(IncPaths) $(PreprocessorDefines) -std=c++11 -o &quot;$(NativeOutputFilePath)&quot; $(CompilerArgs) $(LinkArgs)"
+          WorkingDirectory="$(NativeObjDir)"
+          ConsoleToMsBuild="true"/>
+
+    <Copy SourceFiles="$(NetHostDir)/$(NetHostName)"
+          DestinationFolder="$(NativeBinDir)"
+          SkipUnchangedFiles="True" />
+  </Target>
+
+</Project>
