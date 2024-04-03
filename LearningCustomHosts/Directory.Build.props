@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <SourceDir>$(MSBuildThisFileDirectory)</SourceDir>
+    <BinsDir>$(MSBuildThisFileDirectory)bin/</BinsDir>
+  </PropertyGroup>
+</Project>
