@@ -47,25 +47,7 @@ public class AppAnalyzer
       - args[2..]: Options for parsing and analyzing the coldstart profile result.
      */
 
-    static void Main(string[] args)
-    {
-        // string path = args[0];
-        // string[] metrics = new string[] { "detailed-jit" };
-        // ExtractInfoFromProfile(path, metrics);
-
-        string path = args[0];
-        string[] allMethods = File.ReadAllLines(path);
-
-        TableArranger table = new TableArranger(
-            entries: allMethods,
-            headers: new string[] { "Jitted Methods", "Jitting Time" },
-            lengths: new int[] { 80, 30 },
-            rawDelimiter: " : ");
-
-        table.DisplayTable();
-    }
-
-    static int Main2(string[] args)
+    static int Main(string[] args)
     {
         string analyzerExePath = args[0];
         string traceFullPath = args[1];
@@ -101,6 +83,7 @@ public class AppAnalyzer
                            bool willAnalyzeFurther = false)
     {
         int exitCode = 0;
+        Console.WriteLine($"\nRunning {analyzerExePath} {traceFullPath}...");
 
         using (Process toolRunner = new Process())
         {
@@ -109,7 +92,7 @@ public class AppAnalyzer
                 Arguments = traceFullPath,
                 CreateNoWindow = true,
                 FileName = analyzerExePath,
-                RedirectStandardOutput = true,
+                RedirectStandardOutput = false,
                 UseShellExecute = false
             };
 
@@ -143,6 +126,7 @@ public class AppAnalyzer
     static void ExtractInfoFromProfile(string coldStartFile,
                                        string[] metrics)
     {
+        Console.WriteLine($"Analyzing Cold Start Profile {coldStartFile}...");
         string[] lines = File.ReadAllLines(coldStartFile);
 
         foreach (string m in metrics)
@@ -227,7 +211,7 @@ public class AppAnalyzer
         TableArranger table = new TableArranger(
             entries: allMethods,
             headers: new string[] { "Jitted Methods", "Jitting Time" },
-            lengths: new int[] { -1, -1 },
+            lengths: new int[] { 80, 30 },
             rawDelimiter: delimiter);
 
         table.DisplayTable();
@@ -296,7 +280,7 @@ public class AppAnalyzer
         TableArranger table = new TableArranger(
             entries: forTable,
             headers: new string[] { "Jitted Methods", "Total Msec", "Total Count" },
-            lengths: new int[] { -1, -1, -1 },
+            lengths: new int[] { 80, 30, 5 },
             rawDelimiter: " , ");
 
         table.DisplayTable();

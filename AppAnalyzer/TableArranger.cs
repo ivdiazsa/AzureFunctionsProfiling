@@ -246,10 +246,12 @@ public class TableArranger
                 // Otherwise, display the rest of the string. We have to make this
                 // distinction because if the next segment is shorter, then we would
                 // get an ArgumentOutOfRangeException.
-                string nextWrapText = c.Text.Substring(
-                    c.MaxLength * (j+1),
-                    Math.Min(c.MaxLength * (j+2), c.Text.Length - 1));
 
+                int segmentStart = c.MaxLength * (j+1);
+                int segmentLength = Math.Min(c.Text.Length - segmentStart,
+                                             c.MaxLength * (j+1));
+
+                string nextWrapText = c.Text.Substring(segmentStart, segmentLength);
                 Console.Write($" {nextWrapText.PadRight(c.MaxLength)} {_colSeparator}");
 
                 // Decrement by one because this wrap has been taken care of.
@@ -278,7 +280,6 @@ public class TableArranger
                 // We're adding +2 to the amount of characters because we're going to
                 // pad each cell with a heading and a trailing space. Just to improve
                 // the text's readability.
-
                 Console.Write(String.Join("", Enumerable.Repeat(_rowSeparator,
                                                                 c.MaxLength + 2)));
                 Console.Write(delimiter);
