@@ -1,3 +1,7 @@
 AppAnalyzer/out/*
 AppAnalyzer/obj/*
 AppAnalyzer/*.txt
+
+SDKPatcher/obj/*
+SDKPatcher/out/*
+SDKPatcher/dotnet-sdk-nightly*
