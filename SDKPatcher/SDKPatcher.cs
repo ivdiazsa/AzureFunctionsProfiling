@@ -26,13 +26,7 @@ public class SDKPatcher
         public string RepoAltPlatform  { get { return $"{Platform}.{Config}"; } }
         public string ArtifactsBinPath { get { return Path.Join(RepoRoot, "artifacts", "bin"); } }
 
-        public Context()
-        {
-            // Platform = $"{OS}-{Arch}";
-            // RepoPlatform = $"{OS}.{Arch}.{Config}";
-            // RepoAltPlatform = $"{Platform}.{Config}";
-            // ArtifactsBinPath = Path.Join(RepoRoot, "artifacts", "bin");
-        }
+        public Context() {}
     }
 
     private const string _sdkRootFolder = "dotnet-sdk-nightly";
@@ -142,14 +136,18 @@ public class SDKPatcher
 
         // Patching HostFxr
 
-        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "libhostfxr.so");
-        copyTo = Path.Join(assemblyPaths["SDK_HostFxr"], "libhostfxr.so");
+        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
+                             AssemblyNameToOS("hostfxr", ctx.OS, "dynamic_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_HostFxr"],
+                           AssemblyNameToOS("hostfxr", ctx.OS, "dynamic_lib"));
         PatchFile(copyFrom, copyTo);
 
         // Patching Native Packs
 
-        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "apphost");
-        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "apphost");
+        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
+                             AssemblyNameToOS("apphost", ctx.OS, "executable"));
+        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"],
+                           AssemblyNameToOS("apphost", ctx.OS, "executable"));
         PatchFile(copyFrom, copyTo);
 
         copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "coreclr_delegates.h");
@@ -160,30 +158,69 @@ public class SDKPatcher
         copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "hostfxr.h");
         PatchFile(copyFrom, copyTo);
 
-        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "libnethost.a");
-        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "libnethost.a");
+        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
+                             AssemblyNameToOS("nethost", ctx.OS, "static_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"],
+                           AssemblyNameToOS("nethost", ctx.OS, "static_lib"));
         PatchFile(copyFrom, copyTo);
 
-        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "libnethost.so");
-        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "libnethost.so");
+        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
+                             AssemblyNameToOS("nethost", ctx.OS, "dynamic_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"],
+                           AssemblyNameToOS("nethost", ctx.OS, "dynamic_lib"));
         PatchFile(copyFrom, copyTo);
 
         copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "nethost.h");
         copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "nethost.h");
         PatchFile(copyFrom, copyTo);
 
-        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "singlefilehost");
-        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "singlefilehost");
+        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
+                             AssemblyNameToOS("singlefilehost", ctx.OS, "executable"));
+        copyTo = Path.Join(assemblyPaths["SDK_NativePacks"],
+                           AssemblyNameToOS("singlefilehost", ctx.OS, "executable"));
         PatchFile(copyFrom, copyTo);
+
+        // For some reason, there are more binaries in the Windows version of dotnet.
+        // So, we copy them here as well in that case.
+        if (ctx.OS.Equals("windows"))
+        {
+            // This may or may not be completely right. Will confirm on Monday with
+            // a Windows build, that the artifact binaries are indeed placed where
+            // I think they are.
+
+            copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "comhost.dll");
+            copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "comhost.dll");
+            PatchFile(copyFrom, copyTo);
+
+            copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "ijwhost.dll");
+            copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "ijwhost.dll");
+            PatchFile(copyFrom, copyTo);
+
+            copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "ijwhost.lib");
+            copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "ijwhost.lib");
+            PatchFile(copyFrom, copyTo);
+
+            copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "libnethost.lib");
+            copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "libnethost.lib");
+            PatchFile(copyFrom, copyTo);
+
+            copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "libnethost.pdb");
+            copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "libnethost.pdb");
+            PatchFile(copyFrom, copyTo);
+        }
 
         // Patching Framework
 
-        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "libhostpolicy.so");
-        copyTo = Path.Join(assemblyPaths["SDK_Framework"], "libhostpolicy.so");
+        copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
+                             AssemblyNameToOS("hostpolicy", ctx.OS, "dynamic_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_Framework"],
+                           AssemblyNameToOS("hostpolicy", ctx.OS, "dynamic_lib"));
         PatchFile(copyFrom, copyTo);
 
-        copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"], "libcoreclr.so");
-        copyTo = Path.Join(assemblyPaths["SDK_Framework"], "libcoreclr.so");
+        copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"],
+                             AssemblyNameToOS("coreclr", ctx.OS, "dynamic_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_Framework"],
+                           AssemblyNameToOS("coreclr", ctx.OS, "dynamic_lib"));
         PatchFile(copyFrom, copyTo);
 
         copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"], "System.Private.CoreLib.dll");
@@ -208,6 +245,31 @@ public class SDKPatcher
         Console.WriteLine($"Patching {target}...");
         Console.WriteLine($"From {source}...\n");
         File.Copy(source, target, overwrite: true);
+    }
+
+    static string AssemblyNameToOS(string basename, string os, string asmtype)
+    {
+        switch (asmtype)
+        {
+            case "dynamic_lib":
+                return os switch
+                {
+                    "linux" => $"lib{basename}.so",
+                    "osx" => $"lib{basename}.dylib",
+                    "windows" => $"{basename}.dll",
+                    _ => throw new ArgumentException("Found unrecognized OS '{os}' :("),
+                };
+
+            case "static_lib":
+                return os.Equals("windows") ? $"{basename}.lib" : $"lib{basename}.a";
+
+            case "executable":
+                return os.Equals("windows") ? $"{basename}.exe" : basename;
+
+            default:
+                throw new ArgumentException("Found unrecognized assembly type"
+                                            + $" '{asmtype}' :(");
+        }
     }
 
     static async Task DownloadExtractNightlySDK(Context ctx)
