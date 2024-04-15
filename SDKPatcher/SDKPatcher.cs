@@ -48,6 +48,11 @@ public class SDKPatcher
                                         + " error message later.\n");
         }
 
+        // The Run-SDK-Patcher.ps1 Powershell script already takes care of adapting
+        // the patcher's parameters. I'm leaving the adapting process here as well,
+        // just for those rare cases we might need/want to run the patcher's executable
+        // app directly.
+
         Context ctx = new Context
         {
             Arch = args[0].ToLower(),
@@ -237,7 +242,7 @@ public class SDKPatcher
         copyTo = Path.Join(assemblyPaths["SDK_RefPacks"], "System.Runtime.dll");
         PatchFile(copyFrom, copyTo);
 
-        Console.WriteLine("\nFinished patching the SDK!\n");
+        Console.WriteLine("Finished patching the SDK!\n");
     }
 
     static void PatchFile(string source, string target)
