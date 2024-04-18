@@ -21,7 +21,11 @@ public class SDKPatcher
 
         public bool Redownload { get; init; }
 
-        public string Platform         { get { return $"{OS}-{Arch}"; } }
+        public string Platform
+        {
+            get { return OS.Equals("windows") ? $"win-{Arch}" : $"{OS}-{Arch}"; }
+        }
+
         public string RepoPlatform     { get { return $"{OS}.{Arch}.{Config}"; } }
         public string RepoAltPlatform  { get { return $"{Platform}.{Config}"; } }
         public string ArtifactsBinPath { get { return Path.Join(RepoRoot, "artifacts", "bin"); } }
@@ -283,8 +287,19 @@ public class SDKPatcher
         string downloadZip = Path.Join(ctx.WorkPath, $"dotnet-sdk-nightly.{zipExt}");
         string extractFolder = Path.Join(ctx.WorkPath, _sdkRootFolder);
 
-        string nightlyURL = "https://aka.ms/dotnet/9.0.1xx/daily/"
-                            + $"dotnet-sdk-{ctx.Platform}.{zipExt}";
+        // There must be a cleaner way to do this. Argh Windows!
+        string nightlyURL = string.Empty;
+
+        if (!$ctx.OS.Equals("windows"))
+        {
+            nightlyURL = "https://aka.ms/dotnet/9.0.1xx/daily/"
+                         + $"dotnet-sdk-{ctx.Platform}.{zipExt}";
+        }
+        else
+        {
+            nightlyURL = "https://aka.ms/dotnet/9.0.1xx/daily/"
+                         + $"dotnet-sdk-win-{ctx.Arch}.{zipExt}";
+        }
 
         // Wanting to download a new SDK nightly build means we want to start an
         // experiment from a clean slate. So, first we delete any remains from
