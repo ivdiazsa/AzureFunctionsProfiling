@@ -37,21 +37,47 @@ if ((-not (Test-Path (Join-Path $patcherOutPath $patcherAppName))))
 {
     if (-not $rebuild) { Write-Host "SDKPatcher app not found. Building it now...`n" }
 
-    Start-Process -FilePath "dotnet" `
-                  -ArgumentList @("build", "-c", "Release", "-o", "out", "-tl:off") `
-                  -Wait
+    if (!ctx.OS.Equals("windows"))
+    {
+        Start-Process -FilePath "dotnet" `
+                      -ArgumentList @("build", "-c", "Release", "-o", "out", "-tl:off") `
+                      -Wait
+    }
+    else
+    {
+        Start-Process -FilePath "dotnet" `
+                      -ArgumentList @("build", "-c", "Release", "-o", "out", "-tl:off") `
+                      -NoNewWindow `
+                      -Wait
+    }
 }
 
 # Run the patcher app with the processed parameters from here.
 
-Start-Process -FilePath (Join-Path $patcherOutPath $patcherAppName) `
-              -ArgumentList `
-              @($architecture, `
-              $configuration, `
-              $os, `
-              $runtimeRepo, `
-              $workPath, `
-              $redownloadStr) `
-              -Wait
+if (!ctx.OS.Equals("windows"))
+{
+    Start-Process -FilePath (Join-Path $patcherOutPath $patcherAppName) `
+                  -ArgumentList `
+                  @($architecture, `
+                  $configuration, `
+                  $os, `
+                  $runtimeRepo, `
+                  $workPath, `
+                  $redownloadStr) `
+                  -Wait
+}
+else
+{
+    Start-Process -FilePath (Join-Path $patcherOutPath $patcherAppName) `
+                  -ArgumentList `
+                  @($architecture, `
+                  $configuration, `
+                  $os, `
+                  $runtimeRepo, `
+                  $workPath, `
+                  $redownloadStr) `
+                  -NoNewWindow `
+                  -Wait
+}
 
 Write-Host "Finished running the SDK Patcher! Exiting now...`n"

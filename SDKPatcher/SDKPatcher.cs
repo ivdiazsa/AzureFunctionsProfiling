@@ -213,7 +213,7 @@ public class SDKPatcher
             copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "libnethost.lib");
             PatchFile(copyFrom, copyTo);
 
-            copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "libnethost.pdb");
+            copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "PDB", "libnethost.pdb");
             copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "libnethost.pdb");
             PatchFile(copyFrom, copyTo);
         }
@@ -266,7 +266,7 @@ public class SDKPatcher
                     "linux" => $"lib{basename}.so",
                     "osx" => $"lib{basename}.dylib",
                     "windows" => $"{basename}.dll",
-                    _ => throw new ArgumentException("Found unrecognized OS '{os}' :("),
+                    _ => throw new ArgumentException($"Found unrecognized OS '{os}' :("),
                 };
 
             case "static_lib":
