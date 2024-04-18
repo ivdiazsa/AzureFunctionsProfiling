@@ -9,7 +9,7 @@ Param(
     [switch]$rebuild
 )
 
-Write-Host "`nRunning Script...!"
+Write-Host "`nRunning Script...!`n"
 
 $architecture = $architecture.ToLower()
 $configuration = (Get-Culture).TextInfo.ToTitleCase($configuration.ToLower())
@@ -25,8 +25,8 @@ $patcherAppName = if ($os -ieq "windows") { "SDKPatcher.exe" } else { "SDKPatche
 
 if ($rebuild)
 {
-    if (Test-Path $patcherOutPath) Remove-Item -Path $patcherOutPath -Recurse -Force
-    if (Test-Path $patcherObjPath) Remove-Item -Path $patcherObjPath -Recurse -Force
+    if (Test-Path $patcherOutPath) { Remove-Item -Path $patcherOutPath -Recurse -Force }
+    if (Test-Path $patcherObjPath) { Remove-Item -Path $patcherObjPath -Recurse -Force }
 
     Write-Host "Rebuild flag was passed, so will build the SDK Patcher again...`n"
 }
@@ -35,20 +35,23 @@ if ($rebuild)
 
 if ((-not (Test-Path (Join-Path $patcherOutPath $patcherAppName))))
 {
-    if (-not $rebuild) Write-Host "SDKPatcher app not found. Building it now...`n"
+    if (-not $rebuild) { Write-Host "SDKPatcher app not found. Building it now...`n" }
 
     Start-Process -FilePath "dotnet" `
-                  -ArgumentList @("build", "-c", "Release", "-o", "out")
+                  -ArgumentList @("build", "-c", "Release", "-o", "out", "-tl:off") `
+                  -Wait
 }
 
 # Run the patcher app with the processed parameters from here.
 
 Start-Process -FilePath (Join-Path $patcherOutPath $patcherAppName) `
-              -ArgumentList @($architecture, `
+              -ArgumentList `
+              @($architecture, `
               $configuration, `
               $os, `
               $runtimeRepo, `
               $workPath, `
-              $redownloadStr)
+              $redownloadStr) `
+              -Wait
 
 Write-Host "Finished running the SDK Patcher! Exiting now...`n"
