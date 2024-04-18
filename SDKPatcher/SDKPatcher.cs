@@ -290,7 +290,7 @@ public class SDKPatcher
         // There must be a cleaner way to do this. Argh Windows!
         string nightlyURL = string.Empty;
 
-        if (!$ctx.OS.Equals("windows"))
+        if (!ctx.OS.Equals("windows"))
         {
             nightlyURL = "https://aka.ms/dotnet/9.0.1xx/daily/"
                          + $"dotnet-sdk-{ctx.Platform}.{zipExt}";
