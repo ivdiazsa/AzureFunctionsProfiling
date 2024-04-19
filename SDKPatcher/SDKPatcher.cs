@@ -44,7 +44,7 @@ public class SDKPatcher
 
     static async Task Main(string[] args)
     {
-        Console.WriteLine("\nLaunching Script...!\n");
+        Console.WriteLine("\nLaunching SDK Patcher...!\n");
 
         if (args.Length < 6)
         {
@@ -143,7 +143,7 @@ public class SDKPatcher
         string copyFrom = string.Empty;
         string copyTo = string.Empty;
 
-        // Patching HostFxr
+        /* Patching HostFxr */
 
         copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
                              AssemblyNameToOS("hostfxr", ctx.OS, "dynamic_lib"));
@@ -151,7 +151,7 @@ public class SDKPatcher
                            AssemblyNameToOS("hostfxr", ctx.OS, "dynamic_lib"));
         PatchFile(copyFrom, copyTo);
 
-        // Patching Native Packs
+        /* Patching Native Packs */
 
         copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
                              AssemblyNameToOS("apphost", ctx.OS, "executable"));
@@ -191,12 +191,9 @@ public class SDKPatcher
 
         // For some reason, there are more binaries in the Windows version of dotnet.
         // So, we copy them here as well in that case.
+
         if (ctx.OS.Equals("windows"))
         {
-            // This may or may not be completely right. Will confirm on Monday with
-            // a Windows build, that the artifact binaries are indeed placed where
-            // I think they are.
-
             copyFrom = Path.Join(assemblyPaths["Repo_Corehost"], "comhost.dll");
             copyTo = Path.Join(assemblyPaths["SDK_NativePacks"], "comhost.dll");
             PatchFile(copyFrom, copyTo);
@@ -218,7 +215,7 @@ public class SDKPatcher
             PatchFile(copyFrom, copyTo);
         }
 
-        // Patching Framework
+        /* Patching Framework */
 
         copyFrom = Path.Join(assemblyPaths["Repo_Corehost"],
                              AssemblyNameToOS("hostpolicy", ctx.OS, "dynamic_lib"));
@@ -232,6 +229,24 @@ public class SDKPatcher
                            AssemblyNameToOS("coreclr", ctx.OS, "dynamic_lib"));
         PatchFile(copyFrom, copyTo);
 
+        copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"],
+                             AssemblyNameToOS("clrgcexp", ctx.OS, "dynamic_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_Framework"],
+                           AssemblyNameToOS("clrgcexp", ctx.OS, "dynamic_lib"));
+        PatchFile(copyFrom, copyTo);
+
+        copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"],
+                             AssemblyNameToOS("clrgc", ctx.OS, "dynamic_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_Framework"],
+                           AssemblyNameToOS("clrgc", ctx.OS, "dynamic_lib"));
+        PatchFile(copyFrom, copyTo);
+
+        copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"],
+                             AssemblyNameToOS("clrjit", ctx.OS, "dynamic_lib"));
+        copyTo = Path.Join(assemblyPaths["SDK_Framework"],
+                           AssemblyNameToOS("clrjit", ctx.OS, "dynamic_lib"));
+        PatchFile(copyFrom, copyTo);
+
         copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"], "System.Private.CoreLib.dll");
         copyTo = Path.Join(assemblyPaths["SDK_Framework"], "System.Private.CoreLib.dll");
         PatchFile(copyFrom, copyTo);
@@ -240,7 +255,18 @@ public class SDKPatcher
         copyTo = Path.Join(assemblyPaths["SDK_Framework"], "System.Runtime.dll");
         PatchFile(copyFrom, copyTo);
 
-        // Patching Native Refs
+        // Windows has an additional binary presumably related to the ETW events.
+
+        if (ctx.OS.Equals("windows"))
+        {
+            copyFrom = Path.Join(assemblyPaths["Repo_Coreclr"],
+                                 AssemblyNameToOS("clretwrc", ctx.OS, "dynamic_lib"));
+            copyTo = Path.Join(assemblyPaths["SDK_Framework"],
+                               AssemblyNameToOS("clretwrc", ctx.OS, "dynamic_lib"));
+            PatchFile(copyFrom, copyTo);
+        }
+
+        /* Patching Native Refs */
 
         copyFrom = Path.Join(assemblyPaths["Repo_NetcoreAppRef"], "System.Runtime.dll");
         copyTo = Path.Join(assemblyPaths["SDK_RefPacks"], "System.Runtime.dll");

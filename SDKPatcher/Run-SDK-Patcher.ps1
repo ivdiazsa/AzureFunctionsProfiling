@@ -35,7 +35,7 @@ if ($rebuild)
 
 if ((-not (Test-Path (Join-Path $patcherOutPath $patcherAppName))))
 {
-    if (-not $rebuild) { Write-Host "SDKPatcher app not found. Building it now...`n" }
+    if (-not $rebuild) { Write-Host "SDK Patcher app not found. Building it now...`n" }
 
     if (!ctx.OS.Equals("windows"))
     {
@@ -50,6 +50,10 @@ if ((-not (Test-Path (Join-Path $patcherOutPath $patcherAppName))))
                       -NoNewWindow `
                       -Wait
     }
+}
+else
+{
+    Write-Host "SDK Patcher app found. Running it now..."
 }
 
 # Run the patcher app with the processed parameters from here.
@@ -80,4 +84,4 @@ else
                   -Wait
 }
 
-Write-Host "Finished running the SDK Patcher! Exiting now...`n"
+Write-Host "Finished running the script! Exiting now...`n"
