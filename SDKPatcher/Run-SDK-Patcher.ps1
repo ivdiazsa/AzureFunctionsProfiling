@@ -37,7 +37,7 @@ if ((-not (Test-Path (Join-Path $patcherOutPath $patcherAppName))))
 {
     if (-not $rebuild) { Write-Host "SDK Patcher app not found. Building it now...`n" }
 
-    if (!ctx.OS.Equals("windows"))
+    if (-not ($os -ieq "windows"))
     {
         Start-Process -FilePath "dotnet" `
                       -ArgumentList @("build", "-c", "Release", "-o", "out", "-tl:off") `
@@ -58,7 +58,7 @@ else
 
 # Run the patcher app with the processed parameters from here.
 
-if (!ctx.OS.Equals("windows"))
+if (-not ($os -ieq "windows"))
 {
     Start-Process -FilePath (Join-Path $patcherOutPath $patcherAppName) `
                   -ArgumentList `
