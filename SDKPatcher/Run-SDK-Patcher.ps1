@@ -28,7 +28,8 @@ if ($rebuild)
     if (Test-Path $patcherOutPath) { Remove-Item -Path $patcherOutPath -Recurse -Force }
     if (Test-Path $patcherObjPath) { Remove-Item -Path $patcherObjPath -Recurse -Force }
 
-    Write-Host "Rebuild flag was passed, so will build the SDK Patcher again...`n"
+    Write-Host "Rebuild flag was passed, so will build the SDK Patcher again...`n" `
+               -ForegroundColor "DarkYellow"
 }
 
 # Build the SDK Patcher app if it's not there, or a rebuild was requested.
@@ -53,7 +54,7 @@ if ((-not (Test-Path (Join-Path $patcherOutPath $patcherAppName))))
 }
 else
 {
-    Write-Host "SDK Patcher app found. Running it now..."
+    Write-Host "SDK Patcher app found. Running it now..." -ForegroundColor "Green"
 }
 
 # Run the patcher app with the processed parameters from here.
