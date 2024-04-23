@@ -9,6 +9,11 @@ Param(
 
 Write-Host "`nLaunching all-dotnet builder...`n"
 
+# We are taking the safe a approach of only looking through the first level.
+# This because it's not uncommon to have the base csproj files reference and call
+# other project files down the tree, which in this case, do not need to be built
+# again directly.
+
 $projectFiles = Get-ChildItem -Path $workPath -Recurse -Depth 1 -Filter "*.csproj"
 
 Write-Host "Projects that will be built:" -ForegroundColor "DarkCyan"
@@ -20,9 +25,15 @@ foreach ($csproj in $projectFiles)
     $projParentDir = Split-Path -Path $projFullName -Parent
     $projFileName = $csproj.Name
 
+    # We're redirecting the 'dotnet build' output to an 'out' folder, instead of the
+    # usual 'bin' subtree, for the sake of simplicity.
+
     $outDir = Join-Path $projParentDir "out"
     $objDir = Join-Path $projParentDir "obj"
     $dotnetArgs = @("build", $projFullName, "-c", "Release", "-o", $outDir)
+
+    # If a rebuild was requested, then delete all artifacts from the previous build
+    # prior to calling dotnet again.
 
     if ($rebuild)
     {
