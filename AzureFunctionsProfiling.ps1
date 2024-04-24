@@ -4,8 +4,9 @@
 Param(
     # Run App Specific Parameters
 
-    [string]$appHostDir = (Get-Location),
-    [string]$perfviewExePath = (Join-Path $appHostDir "PerfView.exe"),
+    [switch][Alias('h')]$help,
+    [string][Alias('apphost')]$appHostDir = (Get-Location),
+    [string][Alias('perfview')]$perfviewExePath = (Join-Path $appHostDir "PerfView.exe"),
 
     [ValidateSet("base", "prejit", "preload", "preload+prejit")] `
       [string]$scenario = "base",
@@ -26,6 +27,59 @@ Param(
 # *********************
 # Auxiliary Functions!
 # *********************
+
+# /// Display-Help()
+# This little function prints a brief message about the script, and a small
+# explanation on what each flag does.
+
+function Display-Help()
+{
+    Write-Host "`nUsage: AzureFunctionsProfiling.ps1 <parameters go here>`n" `
+      -ForegroundColor "DarkCyan"
+
+    Write-Host "-h, -help:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Display this message.`n"
+
+    Write-Host "-apphost, -appHostDir:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Path to the directory containing everything to test (i.e. The" `
+               "FunctionApp44 folder Azure Functions gave us) [Default: This folder]`n"
+
+    Write-Host "-perfview, -perfviewExePath:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Path to the 'perfview.exe' that will be used to capture the profiles" `
+               "and traces. [Default: This folder + perfview.exe]`n"
+
+    Write-Host "-scenario:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Scenario you wish to run 'func-harness' on. Possible values are" `
+               "base, prejit, preload, and preload+prejit. [Default: base]`n"
+
+    Write-Host "-analyzerName:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Name of the analyzer tool (i.e. FunctionsColdStartProfileAnalyzer.exe" `
+               "that they gave us). This can be omitted if passed as part of the" `
+               "full path given to `"-analyzerPath.`"" `
+               "[Default: FunctionsColdStartProfileAnalyzer.exe]`n"
+
+    Write-Host "-analyzerPath:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Path where the analyzer tool is located. May include the name of" `
+               "the exe file if `"-analyzerName`" is omitted. [Default: This folder]`n"
+
+    Write-Host "-mode:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Mode of running this script:"
+    Write-Host "  * Run: Only run the 'func-harness' app and capture the trace."
+    Write-Host "  * Analyze: Only run the analyzer tool on the provided trace."
+    Write-Host "  * All: Do both. Run 'func-harness', and then run the analyzer" `
+               "tool on the resulting trace."
+    Write-Host "[Default: all]`n"
+
+    Write-Host "-traceName:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Name of the trace to be captured and/or profiled. This can be" `
+               "omitted if passed as part of the full path given to `"-tracePath`"." `
+               "[Default: PerfviewData.etl]`n"
+
+    Write-Host "-tracePath:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Path where the trace will be saved to and/or read from. May include" `
+               "the name of the .etl/.etlx file if `"-traceName`" is omitted." `
+               "[Default: App Host Path]`n"
+}
 
 # /// Validate-RunPaths()
 # This function performs the necessary checks to ensure all paths are valid, so
@@ -226,6 +280,12 @@ function Analyze-App()
 
 Write-Host "`nLaunching script..."
 
+if ($help)
+{
+    Display-Help
+    exit 0
+}
+
 # I want to give my team the liberty of passing the trace path as either the
 # folder containing the traces, or the trace file itself, using the '-tracePath'
 # command-line argument. However, here in the script, we do need to work with
@@ -238,6 +298,12 @@ if (([System.IO.Path]::GetExtension($tracePath) -eq ".etl") `
 {
     $traceName = (Split-Path -Path $tracePath -Leaf)
     $tracePath = (Split-Path -Path $tracePath -Parent)
+}
+
+if ([System.IO.Path]::GetExtension($analyzerPath) -eq ".exe")
+{
+    $analyzerName = (Split-Path -Path $analyzerPath -Leaf)
+    $analyzerPath = (Split-Path -Path $analyzerPath -Parent)
 }
 
 if (($mode -ieq "run") -or ($mode -ieq "all")) { Run-App }

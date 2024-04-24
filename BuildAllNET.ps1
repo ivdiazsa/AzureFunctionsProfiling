@@ -2,12 +2,38 @@
 
 [CmdletBinding(PositionalBinding=$false)]
 Param(
+    [switch][Alias('h')]$help,
     [string][Alias('dotnet')]$dotnetSDKPath,
     [string][Alias('work')]$workPath,
     [switch]$rebuild
 )
 
+# /// Display-Help()
+# This little function prints a brief message about the script, and a small
+# explanation on what each flag does.
+
+function Display-Help()
+{
+    Write-Host "Usage: BuildAllNET.ps1 <parameters go here>`n" `
+      -ForegroundColor "DarkCyan"
+
+    Write-Host "-h, -help:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Display this message.`n"
+
+    Write-Host "-dotnet, -dotnetSDKPath:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Path to the patched .NET SDK to use to build and publish.`n"
+
+    Write-Host "-work, -workPath:" -ForegroundColor "DarkGreen" -NoNewLine
+    Write-Host " Path to the directory where all the .NET projects to build are located`n"
+}
+
 Write-Host "`nLaunching all-dotnet builder...`n"
+
+if ($help)
+{
+    Display-Help
+    exit 0
+}
 
 # We are taking the safe a approach of only looking through the first level.
 # This because it's not uncommon to have the base csproj files reference and call
@@ -52,7 +78,7 @@ foreach ($csproj in $projectFiles)
     }
     else
     {
-        Start-Process -FilePath (Join-Path $dotnetSDKPath "dotnet.exe") `
+        Start-Process -FilePath (Join-Path $dotnetSDKPath "dotnet") `
                       -ArgumentList $dotnetArgs `
                       -Wait
     }

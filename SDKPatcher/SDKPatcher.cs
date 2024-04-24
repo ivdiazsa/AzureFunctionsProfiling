@@ -34,7 +34,7 @@ public class SDKPatcher
         public Context() {}
     }
 
-    private string _sdkRootFolder = "dotnet-sdk-nightly";
+    private static string _sdkRootFolder = "dotnet-sdk-nightly";
 
     // args[0]: Architecture
     // args[1]: Configuration
@@ -312,13 +312,13 @@ public class SDKPatcher
 
     static async Task DownloadExtractNightlySDK(Context ctx)
     {
-        _sdkRootFolder = $"{_sdkRootFolder}-{channel}";
-
         string zipExt = ctx.OS.Equals("windows") ? "zip" : "tar.gz";
         string channel = ctx.SDKChannel.Equals("main") ? "" : $"-{ctx.SDKChannel}";
+     
+        _sdkRootFolder = $"{_sdkRootFolder}{channel}";
 
         string downloadZip = Path.Join(ctx.WorkPath,
-                                       $"dotnet-sdk-nightly-{channel}.{zipExt}");
+                                       $"dotnet-sdk-nightly{channel}.{zipExt}");
         string extractFolder = Path.Join(ctx.WorkPath, _sdkRootFolder);
 
         // There must be a cleaner way to do this. Argh Windows!
