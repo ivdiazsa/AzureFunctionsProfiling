@@ -19,7 +19,8 @@ public class SDKPatcher
         public string RepoRoot   { get; init; }
         public string WorkPath   { get; init; }
 
-        public bool Redownload { get; init; }
+        public bool Redownload   { get; init; }
+        public string SDKChannel { get; init; }
 
         public string Platform
         {
@@ -33,7 +34,7 @@ public class SDKPatcher
         public Context() {}
     }
 
-    private const string _sdkRootFolder = "dotnet-sdk-nightly";
+    private string _sdkRootFolder = "dotnet-sdk-nightly";
 
     // args[0]: Architecture
     // args[1]: Configuration
@@ -41,12 +42,13 @@ public class SDKPatcher
     // args[3]: Runtime Repo Path
     // args[4]: Working Path
     // args[5]: Redownload SDK?
+    // args[6]: SDK Channel
 
     static async Task Main(string[] args)
     {
         Console.WriteLine("\nLaunching SDK Patcher...!\n");
 
-        if (args.Length < 6)
+        if (args.Length < 7)
         {
             throw new ArgumentException("Not enough arguments. Will update this"
                                         + " error message later.\n");
@@ -66,6 +68,7 @@ public class SDKPatcher
             RepoRoot = args[3],
             WorkPath = args[4],
             Redownload = args[5] == "true" ? true : false,
+            SDKChannel = args[6],
         };
 
         await DownloadExtractNightlySDK(ctx);
@@ -309,8 +312,13 @@ public class SDKPatcher
 
     static async Task DownloadExtractNightlySDK(Context ctx)
     {
+        _sdkRootFolder = $"{_sdkRootFolder}-{channel}";
+
         string zipExt = ctx.OS.Equals("windows") ? "zip" : "tar.gz";
-        string downloadZip = Path.Join(ctx.WorkPath, $"dotnet-sdk-nightly.{zipExt}");
+        string channel = ctx.SDKChannel.Equals("main") ? "" : $"-{ctx.SDKChannel}";
+
+        string downloadZip = Path.Join(ctx.WorkPath,
+                                       $"dotnet-sdk-nightly-{channel}.{zipExt}");
         string extractFolder = Path.Join(ctx.WorkPath, _sdkRootFolder);
 
         // There must be a cleaner way to do this. Argh Windows!
@@ -318,12 +326,12 @@ public class SDKPatcher
 
         if (!ctx.OS.Equals("windows"))
         {
-            nightlyURL = "https://aka.ms/dotnet/9.0.1xx/daily/"
+            nightlyURL = $"https://aka.ms/dotnet/9.0.1xx{channel}/daily/"
                          + $"dotnet-sdk-{ctx.Platform}.{zipExt}";
         }
         else
         {
-            nightlyURL = "https://aka.ms/dotnet/9.0.1xx/daily/"
+            nightlyURL = $"https://aka.ms/dotnet/9.0.1xx{channel}/daily/"
                          + $"dotnet-sdk-win-{ctx.Arch}.{zipExt}";
         }
 

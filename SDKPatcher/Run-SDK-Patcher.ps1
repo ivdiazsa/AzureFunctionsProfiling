@@ -4,10 +4,13 @@ Param(
     [string][Alias('config')]$configuration,
     [string]$os,
     [string][Alias('repo')]$runtimeRepo,
+    [string][Alias('channel')]$sdkChannel,
     [string][Alias('work')]$workPath,
     [switch]$redownload,
     [switch]$rebuild
 )
+
+# TODO: Validate that the received SDK Channel is correct.
 
 Write-Host "`nRunning Script...!`n"
 
@@ -68,7 +71,8 @@ if (-not ($os -ieq "windows"))
                   $os, `
                   $runtimeRepo, `
                   $workPath, `
-                  $redownloadStr) `
+                  $redownloadStr, `
+                  $sdkChannel) `
                   -Wait
 }
 else
@@ -80,7 +84,8 @@ else
                   $os, `
                   $runtimeRepo, `
                   $workPath, `
-                  $redownloadStr) `
+                  $redownloadStr, `
+                  $sdkChannel) `
                   -NoNewWindow `
                   -Wait
 }

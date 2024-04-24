@@ -11,7 +11,7 @@ Write-Host "`nLaunching all-dotnet builder...`n"
 
 # We are taking the safe a approach of only looking through the first level.
 # This because it's not uncommon to have the base csproj files reference and call
-# other project files down the tree, which in this case, do not need to be built
+# other project files down the tree, which in said case, do not need to be built
 # again directly.
 
 $projectFiles = Get-ChildItem -Path $workPath -Recurse -Depth 1 -Filter "*.csproj"
