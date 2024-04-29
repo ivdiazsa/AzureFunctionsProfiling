@@ -59,6 +59,12 @@ function Display-Help()
 
 Write-Host "`nRunning Script...!`n"
 
+if ($help)
+{
+    Display-Help
+    exit 0
+}
+
 $architecture = $architecture.ToLower()
 $configuration = (Get-Culture).TextInfo.ToTitleCase($configuration.ToLower())
 $os = $os.ToLower()

@@ -11,13 +11,13 @@ internal class FunctionsNetHostManager
     public string RepoPath { get; init; }
     public string SDKPath { get; init; }
 
-    private readonly string _exeExt;
-    private readonly string _dotnetExe;
+    private string _exeExt;
+    private string _dotnetExe;
 
-    private readonly string _buildPath;
-    private readonly string _publishPath;
+    private string _buildPath;
+    private string _publishPath;
 
-    public FunctionsNetHostManager()
+    public void PrepareHostAndArtifacts(string workPath = "")
     {
         _exeExt = IsWindows() ? ".exe" : string.Empty;
         _dotnetExe = Path.Combine(SDKPath, $"dotnet{_exeExt}");
@@ -25,10 +25,7 @@ internal class FunctionsNetHostManager
         // TODO: Update with user parameters rather than hard-coded values.
         _buildPath = Path.Combine("bin", "Release", "net9.0");
         _publishPath = Path.Combine("bin", "Release", "net9.0", "win-x64", "publish");
-    }
 
-    public void PrepareHostAndArtifacts(string workPath = "")
-    {
         if (string.IsNullOrEmpty(workPath))
             workPath = Path.GetDirectoryName(ProfilingArtifactsPath);
 
@@ -56,7 +53,8 @@ internal class FunctionsNetHostManager
         Utils.PrintBanner("Setting up profiling artifacts!");
 
         Console.Write("\nDeleting existing artifacts folder {profileTestingPath}...");
-        Directory.Delete(profileTestingPath, true);
+        if (Directory.Exists(profileTestingPath))
+            Directory.Delete(profileTestingPath, true);
 
         Console.Write("\nCreating new artifacts folder {profileTestingPath} and"
                       + " subfolders...\n");
@@ -129,7 +127,7 @@ internal class FunctionsNetHostManager
             File.Copy(binPath, targetPath);
         }
 
-        Utils.System("pwsh", $"Copy-Item -Path {functionApp44Bins}\\.azurefunctions -Destination {profileTestingPath}\\FunctionApp44Base\\.azurefunctions");
+        Utils.System("pwsh", $"-Command Copy-Item -Path {functionApp44Bins}\\.azurefunctions -Destination {profileTestingPath}\\FunctionApp44Base\\.azurefunctions -Recurse");
         Console.Write("\n");
         Console.Write("\nFinished copying all binaries!\n");
     }

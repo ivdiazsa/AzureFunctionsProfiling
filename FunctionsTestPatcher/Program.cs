@@ -21,7 +21,7 @@ public class Program
         var azureManager = new FunctionsNetHostManager {
             ProfilingArtifactsPath = "C:\\Development\\AzureFunctionsStuff\\ArtifactsForProfileCollection",
             RepoPath = "C:\\Development\\AzureFunctionsStuff\\Azure_azure-functions-dotnet-worker",
-            SDKPath = "C:\\Development\\AzureFunctionsStuff\\TestOurs\\dotnet-sdk-nightly--preview3"
+            SDKPath = "C:\\Development\\AzureFunctionsStuff\\TestWithReflection\\dotnet-sdk-nightly-preview3"
         };
 
         azureManager.PrepareHostAndArtifacts();
