@@ -1,7 +1,15 @@
+AppAnalyzer/bin/*
 AppAnalyzer/out/*
 AppAnalyzer/obj/*
+
 AppAnalyzer/*.txt
 
+SDKPatcher/bin/*
 SDKPatcher/obj/*
 SDKPatcher/out/*
+
 SDKPatcher/dotnet-sdk-nightly*
+
+FunctionsTestPatcher/bin/*
+FunctionsTestPatcher/obj/*
+FunctionsTestPatcher/out/*
