@@ -3,19 +3,63 @@
 require 'optparse'
 
 class MainContext
-  attr_accessor :sdk, :repo_azfunctions, :workpath
+  attr_accessor :analyzerapp, :repo_azfunctions, :sdk, :stages, :tracepath, :workpath
 end
 
+# TODO: Do we need every context option as a possibility for all potential tasks?
 class CommandLineParser
 
   def self.parse_into_context(args)
     context = MainContext.new
+    stage = args.shift
 
+    # TODO: Add a general help for the script.
+    case stage
+    when 'analyze-trace'
+      self.parse_analyze_trace_params(args, context)
+    when 'build-worker'
+      self.parse_build_worker_repo_params(args, context)
+    else
+      raise "Got an unexpected stage '#{stage}' :("
+    end
+
+    # TODO: Implement handling multiple stages.
+    context.stages = [stage]
+    return context
+  end
+
+  private
+
+  def self.parse_analyze_trace_params(args, context)
     opt_parser = OptionParser.new do |params|
-      params.banner = "Usage: ruby azure_functions.rb <options go here>"
+      params.banner = "Usage: ruby azure_functions.rb analyze-trace <options go here>"
 
       params.on('-h', '--help', 'Prints this message.') do
-        puts params
+        puts "\n#{params}\n"
+        exit 0
+      end
+
+      params.on('--analyzer',
+                '--analyzer-path ANALYZER',
+                'Path to the Cold Start analyzer tool executable.') do |value|
+        context.analyzerapp = value
+      end
+
+      params.on('--trace',
+                '--trace-path TRACE',
+                'Path to the generated ETL trace.') do |value|
+        context.tracepath = value
+      end
+    end
+    opt_parser.parse!(args)
+  end
+
+  def self.parse_build_worker_repo_params(args, context)
+    opt_parser = OptionParser.new do |params|
+      params.banner = "Usage: ruby azure_functions.rb build-worker <options go here>"
+
+      params.on('-h', '--help', 'Prints this message.') do
+        puts "\n#{params}\n"
         exit 0
       end
 
@@ -34,9 +78,7 @@ class CommandLineParser
         context.workpath = value
       end
     end
-
     opt_parser.parse!(args)
-    return context
   end
 
 end
