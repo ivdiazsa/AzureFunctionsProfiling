@@ -3,10 +3,17 @@
 require 'optparse'
 
 class MainContext
-  attr_accessor :analyzerapp, :repo_azfunctions, :sdk, :stages, :tracepath, :workpath
+  attr_accessor :analysisparams, :analyzerapp, :repo_azfunctions, :sdk, :stages,
+                :tracepaths, :workpath
+
+  def initialize
+    @analysisparams = {}
+    @tracepaths = []
+    @stages = []
+  end
 end
 
-# TODO: Do we need every context option as a possibility for all potential tasks?
+# TODO: Implement required flags.
 class CommandLineParser
 
   def self.parse_into_context(args)
@@ -24,7 +31,7 @@ class CommandLineParser
     end
 
     # TODO: Implement handling multiple stages.
-    context.stages = [stage]
+    context.stages << stage
     return context
   end
 
@@ -45,10 +52,22 @@ class CommandLineParser
         context.analyzerapp = value
       end
 
-      params.on('--trace',
-                '--trace-path TRACE',
-                'Path to the generated ETL trace.') do |value|
-        context.tracepath = value
+      params.on('--compare COMP', 'Compare traces stuff. Will update this doc later.') do |value|
+        context.analysisparams[:compare] = value
+      end
+
+      # TODO: Add support for multiple metrics per run.
+      params.on('--metric',
+                '--metric-kind KIND',
+                'Denotes which metric you wish to profile.') do |value|
+        context.analysisparams[:metric] = value.downcase
+      end
+
+      params.on('--traces',
+                '--trace-paths T1,T2',
+                Array,
+                'Path to the generated ETL traces or coldstart files.') do |value|
+        context.tracepaths = value
       end
     end
     opt_parser.parse!(args)

@@ -22,6 +22,8 @@ class FunctionsNetHostManager
     @dotnetexe = @sdk.join("dotnet#{@@execext}")
   end
 
+  # NEXT UP: Implement copying the binaries to the work area.
+
   def build_repo
     build_devpack()
     build_functions_nethost()

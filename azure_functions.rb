@@ -10,20 +10,29 @@ require_relative 'src/utils'
 print_banner("AZURE FUNCTIONS!")
 context = CommandLineParser.parse_into_context(ARGV)
 
+# TODO: Add some flags validation, e.g. can't compare if only one trace was provided.
+
 # Run each of the desired stages. Currently, this is just symbolic since only one
 # stage at a time is supported, but we're laying the groundwork and basis for the
 # next steps since now :)
 
 context.stages.each do |stage|
   case stage
-
   when 'analyze-trace'
     analyzer = TraceAnalyzer.new(
       context.analyzerapp,
-      context.tracepath
+      context.tracepaths
     )
 
-    analyzer.run()
+    # This is still a WIP. Comparing traces requires more configuration than what
+    # we normally can have when including it as a value for a universal analysis
+    # kind flag. Hence, we need to handle it separately.
+
+    analysis_kind = context.analysisparams.has_key?(:compare)       ?
+                      "compare-#{context.analysisparams[:compare]}" :
+                      'table-display'
+
+    analyzer.run(analysis_kind, context.analysisparams[:metric])
 
   when 'build-worker'
     azure_manager = FunctionsNetHostManager.new(
