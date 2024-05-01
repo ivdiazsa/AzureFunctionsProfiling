@@ -2,8 +2,11 @@
 
 require 'optparse'
 
+# TODO: Trace and TracePaths are confusing and might even be merged into one
+#       property. Make this cleaner.
 class MainContext
-  attr_accessor :analysisparams, :analyzerapp, :repo_azfunctions, :sdk, :stages,
+  attr_accessor :analysisparams, :analyzerapp, :func_harness_work, :perfview,
+                :repo_azfunctions, :scenario, :sdk, :stages, :tracepath,
                 :tracepaths, :workpath
 
   def initialize
@@ -26,6 +29,8 @@ class CommandLineParser
       self.parse_analyze_trace_params(args, context)
     when 'build-worker'
       self.parse_build_worker_repo_params(args, context)
+    when 'run-benchmarks'
+      self.parse_run_benchmarks_params(args, context)
     else
       raise "Got an unexpected stage '#{stage}' :("
     end
@@ -95,6 +100,39 @@ class CommandLineParser
                 '--work-path PATH',
                 'Path where all the func-harness test stuff is located.') do |value|
         context.workpath = value
+      end
+    end
+    opt_parser.parse!(args)
+  end
+
+  def self.parse_run_benchmarks_params(args, context)
+    opt_parser = OptionParser.new do |params|
+      params.banner = "Usage: ruby azure_functions.rb run-benchmarks <options go here>"
+
+      params.on('-h', '--help', 'Prints this message.') do
+        puts "\n#{params}\n"
+        exit 0
+      end
+
+      params.on('--apphost',
+                '--apphost-path APPHOST',
+                'Path to the func-harness work directory.') do |value|
+        context.func_harness_work = value
+      end
+
+      params.on('--perfview PERFVIEW',
+                'Path to the PerfView executable to use.') do |value|
+        context.perfview = value
+      end
+
+      params.on('--scenario SCENARIO',
+                'Name of the scenario to run (base, prejit, preload).') do |value|
+        context.scenario = value.downcase
+      end
+
+      params.on('--trace TRACE',
+                'Path to the trace to generate with the benchmark.') do |value|
+        context.tracepath = value
       end
     end
     opt_parser.parse!(args)

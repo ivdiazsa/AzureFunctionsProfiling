@@ -2,6 +2,7 @@
 
 # File: azure_functions.rb
 
+require_relative 'src/benchmark_runner'
 require_relative 'src/command_line_parser'
 require_relative 'src/functions_nethost_manager'
 require_relative 'src/trace_analyzer'
@@ -41,6 +42,16 @@ context.stages.each do |stage|
       context.sdk)
 
     azure_manager.build_repo()
+
+  when 'run-benchmarks'
+    benchmarker = BenchmarkRunner.new(
+      context.func_harness_work,
+      context.perfview,
+      context.scenario,
+      context.tracepath
+    )
+
+    benchmarker.run()
 
   else
     raise "Got an unexpected stage '#{stage}' :("
