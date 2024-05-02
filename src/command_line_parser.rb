@@ -7,7 +7,7 @@ require 'optparse'
 class MainContext
 
   attr_reader :analyzetrace_context, :buildworker_context, :runbenchmarks_context,
-              :stages
+              :patchsdk_context, :stages
 
   class AnalyzeTraceContext
     attr_accessor :analyzerapp, :comparetype, :metric, :traces
@@ -29,10 +29,19 @@ class MainContext
     attr_accessor :func_harness_path, :perfview, :scenario, :trace
   end
 
+  class PatchSdkContext
+    attr_accessor :arch, :config, :os, :runtime_repo, :sdkchannel, :redownload
+                  :workpath,
+    def initialize
+      @redownload = false
+    end
+  end
+
   def initialize
     @analyzetrace_context = AnalyzeTraceContext.new
     @buildworker_context = BuildWorkerContext.new
     @runbenchmarks_context = RunBenchmarksContext.new
+    @patchsdk_context = PatchSdkContext.new
     @stages = []
   end
 end
@@ -68,6 +77,8 @@ class CommandLineParser
       self.parse_build_worker_repo_params(args, context.buildworker_context)
     when 'run-benchmarks'
       self.parse_run_benchmarks_params(args, context.runbenchmarks_context)
+    when 'patch-sdk'
+      self.parse_patch_sdk_params(args, context.patchsdk_context)
     else
       raise "Got an unexpected stage '#{stage}' :("
     end
@@ -179,6 +190,56 @@ class CommandLineParser
                 'Path to the trace to generate with the benchmark.') do |value|
         ctx.trace = value
       end
+    end
+    opt_parser.parse!(args)
+  end
+
+  def self.parse_patch_sdk_params(args, ctx)
+    opt_parser = OptionParser.new do |params|
+      params.banner = "Usage: ruby azure_functions.rb patch-sdk <options go here>"
+
+      params.on('-h', '--help', 'Prints this message.') do
+        puts "\n#{params}\n"
+        exit 0
+      end
+
+      params.on('--arch ARCHITECTURE',
+                'Architecture the runtime was built for.') do |value|
+        ctx.arch = value.downcase
+      end
+
+      params.on('--config CONFIGURATION',
+                'Build configuration of the runtime artifacts.') do |value|
+        ctx.config = value.capitalize
+      end
+
+      params.on('--os OPERATING_SYSTEM',
+                'Operating system the runtime was built for.') do |value|
+        ctx.os = value.downcase
+      end
+
+      params.on('--redownload',
+                'Whether to delete the existing SDK  archive and download it again.') \
+      do
+        ctx.redownload = true
+      end
+
+      params.on('--repo RUNTIME_REPO',
+                'Path to the runtime repo clone with the artifacts built.') do |value|
+        ctx.runtime_repo = value
+      end
+
+      params.on('--channel SDK_CHANNEL',
+                'Distibution channel of the SDK to download (main or previewX).') \
+      do |value|
+        ctx.sdkchannel = value
+      end
+
+      params.on('--work WORK_PATH',
+                'Path where you want to save the downloaded SDK.') do |value|
+        ctx.workpath = value
+      end
+
     end
     opt_parser.parse!(args)
   end
