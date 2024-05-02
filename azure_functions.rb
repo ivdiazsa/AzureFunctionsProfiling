@@ -20,36 +20,38 @@ context = CommandLineParser.parse_into_context(ARGV)
 context.stages.each do |stage|
   case stage
   when 'analyze-trace'
+    ctx = context.analyzetrace_context
+
     analyzer = TraceAnalyzer.new(
-      context.analyzerapp,
-      context.tracepaths
+      ctx.analyzerapp,
+      ctx.tracepaths
     )
 
-    # This is still a WIP. Comparing traces requires more configuration than what
-    # we normally can have when including it as a value for a universal analysis
-    # kind flag. Hence, we need to handle it separately.
+    analysis_kind = ctx.comparetype.nil? ?
+                      'table-display'    :
+                      "compare-#{ctx.comparetype}"
 
-    analysis_kind = context.analysisparams.has_key?(:compare)       ?
-                      "compare-#{context.analysisparams[:compare]}" :
-                      'table-display'
-
-    analyzer.run(analysis_kind, context.analysisparams[:metric])
+    analyzer.run(analysis_kind, ctx.metric)
 
   when 'build-worker'
-    azure_manager = FunctionsNetHostManager.new(
-      context.workpath,
-      context.repo_azfunctions,
-      context.sdk)
+    ctx = context.buildworker_context
 
-    azure_manager.build_repo() unless context.copyonly
-    azure_manager.copy_artifacts_to_work_zone() unless context.buildonly
+    azure_manager = FunctionsNetHostManager.new(
+      ctx.workpath,
+      ctx.azfunctions_repo,
+      ctx.sdk)
+
+    azure_manager.build_repo() unless ctx.copyonly
+    azure_manager.copy_artifacts_to_work_zone() unless ctx.buildonly
 
   when 'run-benchmarks'
+    ctx = context.runbenchmarks_context
+
     benchmarker = BenchmarkRunner.new(
-      context.func_harness_work,
-      context.perfview,
-      context.scenario,
-      context.tracepath
+      ctx.func_harness_path,
+      ctx.perfview,
+      ctx.scenario,
+      ctx.trace
     )
 
     benchmarker.run()
