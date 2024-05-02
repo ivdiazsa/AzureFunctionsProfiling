@@ -41,7 +41,8 @@ context.stages.each do |stage|
       context.repo_azfunctions,
       context.sdk)
 
-    azure_manager.build_repo()
+    azure_manager.build_repo() unless context.copyonly
+    azure_manager.copy_artifacts_to_work_zone() unless context.buildonly
 
   when 'run-benchmarks'
     benchmarker = BenchmarkRunner.new(

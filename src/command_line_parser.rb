@@ -2,12 +2,12 @@
 
 require 'optparse'
 
-# TODO: Trace and TracePaths are confusing and might even be merged into one
-#       property. Make this cleaner.
+# TODO: Separate all the MainContext's values into smaller sub-context classes
+#       for better code organization and cleanliness.
 class MainContext
-  attr_accessor :analysisparams, :analyzerapp, :func_harness_work, :perfview,
-                :repo_azfunctions, :scenario, :sdk, :stages, :tracepath,
-                :tracepaths, :workpath
+  attr_accessor :analysisparams, :analyzerapp, :buildonly, :copyonly,
+                :func_harness_work, :perfview, :repo_azfunctions, :scenario, :sdk,
+                :stages, :tracepath, :tracepaths, :workpath
 
   def initialize
     @analysisparams = {}
@@ -90,6 +90,17 @@ class CommandLineParser
       params.on('--az-func-repo REPO',
                 'Path to the Azure Functions Host and Worker Repo') do |value|
         context.repo_azfunctions = value
+      end
+
+      # TODO: Ensure '--copy-only' and '--no-copy' are mutually exclusive.
+      params.on('--copy-only',
+                'Do not rebuild the FunctionsNetHost artifacts. Only copy them.') do
+        context.copyonly = true
+      end
+
+      params.on('--no-copy',
+                'Only (re)build the FunctionsNetHost artifacts.') do
+        context.buildonly = true
       end
 
       params.on('--sdk', '--patched-sdk SDK', 'Path to the .NET SDK to use') do |value|

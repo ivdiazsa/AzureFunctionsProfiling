@@ -1,5 +1,6 @@
 # File: functions_nethost_manager.rb
 
+require 'fileutils'
 require 'pathname'
 require_relative 'utils'
 
@@ -16,18 +17,89 @@ class FunctionsNetHostManager
   # before working with them.
 
   def initialize(_profilingpath, _repo, _sdk)
-    @profiling_artifactspath = Pathname.new(_profilingpath.gsub(/\\+/, '/'))
-    @repo = Pathname.new(_repo.gsub(/\\+/, '/'))
-    @sdk = Pathname.new(_sdk.gsub(/\\+/, '/'))
-    @dotnetexe = @sdk.join("dotnet#{@@execext}")
-  end
+    @profiling_artifactspath = Pathname.new(_profilingpath.gsub(/\\+/, '/')) \
+      unless _profilingpath.nil?
 
-  # NEXT UP: Implement copying the binaries to the work area.
+    @repo = Pathname.new(_repo.gsub(/\\+/, '/')) unless _repo.nil?
+    @sdk = Pathname.new(_sdk.gsub(/\\+/, '/')) unless _sdk.nil?
+    @dotnetexe = @sdk.join("dotnet#{@@execext}") unless @sdk.nil?
+  end
 
   def build_repo
     build_devpack()
     build_functions_nethost()
     build_placeholder_apps()
+  end
+
+  def copy_artifacts_to_work_zone
+    print_banner("Copying FunctionsNetHost Artifacts!")
+
+    # Define the paths we will need to be referencing during the copying process.
+
+    app44_name = 'FunctionApp44'
+    placeholder_name = 'PlaceholderApp'
+    startuphook_name = 'StartupHook'
+
+    # The '+' sign here is an alias for Pathname's join() method.
+    hostsrc_bins = @repo + 'host/src/FunctionsNetHost' + @@publishpath
+    app44_bins = @repo + 'samples' + app44_name + @@buildpath
+    place_hook_bins = @repo + 'samples' + placeholder_name + @@buildpath
+
+    # First, we have to create the directory tree of the func-harness work zone
+    # we will use for our experiments.
+
+    if (Dir.exist?(@profiling_artifactspath))
+      FileUtils.remove_entry_secure(@profiling_artifactspath, force: true)
+    end
+
+    app44_path = @profiling_artifactspath + "#{app44_name}Base"
+    nethostbase_path = @profiling_artifactspath + 'FunctionsNetHostBase'
+    nethostprejit_path = @profiling_artifactspath + 'FunctionsNetHostPreJitOnly'
+
+    print("\nCreating #{@profiling_artifactspath} folder...\n")
+    FileUtils.mkdir_p(@profiling_artifactspath)
+
+    print("Creating #{app44_name}Base folder...\n")
+    FileUtils.mkdir_p("#{app44_path}")
+
+    print("Creating FunctionsNetHostBase folder tree...\n")
+    make_many_dirs("#{nethostbase_path}/#{placeholder_name}",
+                   "#{nethostbase_path}/#{startuphook_name}")
+
+    print("Creating FunctionsNetHostPreJit folder tree...\n")
+    make_many_dirs("#{nethostprejit_path}/#{app44_name}",
+                   "#{nethostprejit_path}/#{placeholder_name}",
+                   "#{nethostprejit_path}/#{startuphook_name}")
+
+    # Next, we have to copy the binaries we built in the repo to their respective
+    # spots in the work zone.
+
+    print("\nCopying FunctionsNetHost binaries...\n")
+
+    copy_to_many("#{hostsrc_bins}/FunctionsNetHost.exe",
+                 nethostbase_path, nethostprejit_path)
+
+    copy_to_many("#{hostsrc_bins}/nethost.dll",
+                 nethostbase_path, nethostprejit_path)
+
+    print("Copying #{app44_name} binaries...\n")
+
+    copy_to_many("#{app44_bins}/.",
+                 app44_path, "#{nethostprejit_path}/#{app44_name}")
+
+    print("Copying #{placeholder_name} binaries...\n")
+
+    copy_to_many(Dir.glob("#{place_hook_bins}/PlaceholderApp.*"),
+                 "#{nethostbase_path}/#{placeholder_name}",
+                 "#{nethostprejit_path}/#{placeholder_name}")
+
+    print("Copying #{placeholder_name} binaries...\n")
+
+    copy_to_many(Dir.glob("#{place_hook_bins}/StartupHook.*"),
+                 "#{nethostbase_path}/#{startuphook_name}",
+                 "#{nethostprejit_path}/#{startuphook_name}")
+
+    print("\nFinished copying the artifacts!\n")
   end
 
   private
@@ -45,13 +117,19 @@ class FunctionsNetHostManager
 
   def build_functions_nethost
     # TODO: Handle the platform universally.
+    # We need the absolute path for the dotnet command because we need to be in
+    # the host/src directory to run it. If we have a relative path, it is relative
+    # to elsewhere, so it wouldn't work here.
+
     hostsrc = @repo.join('host/src')
     publish_args = "publish -c Release -r win-x64"
-    command = "#{@dotnetexe} #{publish_args}"
+    command = "#{File.absolute_path(@dotnetexe)} #{publish_args}"
 
-    print_banner("Building and publishing Functions NetHost!")
-    print("\n#{command}\n\n")
-    system(command)
+    Dir.chdir(hostsrc) do
+      print_banner("Building and publishing Functions NetHost!")
+      print("\n#{command}\n\n")
+      system(command)
+    end
   end
 
   def build_placeholder_apps
@@ -73,4 +151,5 @@ class FunctionsNetHostManager
       system(command)
     end
   end
+
 end

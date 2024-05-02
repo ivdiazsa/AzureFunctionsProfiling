@@ -1,5 +1,7 @@
 # File: utils.rb
 
+require 'fileutils'
+
 def print_banner(message)
   num_stars = message.length + 10
   print("\n#{'*' * num_stars}\n")
@@ -21,4 +23,12 @@ def wrap_string(str, size)
   end
 
   return str_parts.join("\n")
+end
+
+def make_many_dirs(*paths)
+  paths.each { |dir| FileUtils.mkdir_p(dir) }
+end
+
+def copy_to_many(src, *dests)
+  dests.each { |target| FileUtils.cp_r(src, target) }
 end
