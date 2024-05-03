@@ -30,8 +30,8 @@ class MainContext
   end
 
   class PatchSdkContext
-    attr_accessor :arch, :config, :os, :runtime_repo, :sdkchannel, :redownload
-                  :workpath,
+    attr_accessor :arch, :config, :os, :runtime_repo, :sdkchannel, :redownload,
+                  :workpath
     def initialize
       @redownload = false
     end

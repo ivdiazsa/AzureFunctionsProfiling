@@ -5,6 +5,7 @@
 require_relative 'src/benchmark_runner'
 require_relative 'src/command_line_parser'
 require_relative 'src/functions_nethost_manager'
+require_relative 'src/sdk_patcher'
 require_relative 'src/trace_analyzer'
 require_relative 'src/utils'
 
@@ -55,6 +56,20 @@ context.stages.each do |stage|
     )
 
     benchmarker.run()
+
+  when 'patch-sdk'
+    ctx = context.patchsdk_context
+
+    patcher = SdkPatcher.new(
+      ctx.arch,
+      ctx.config,
+      ctx.os,
+      ctx.runtime_repo,
+      ctx.sdkchannel,
+      ctx.workpath
+    )
+
+    patcher.patch_sdk()
 
   else
     raise "Got an unexpected stage '#{stage}' :("

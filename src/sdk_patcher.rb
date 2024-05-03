@@ -1,6 +1,7 @@
 # File: sdk_patcher.rb
 
 require 'pathname'
+require 'uri'
 require_relative 'utils'
 
 class SdkPatcher
@@ -11,7 +12,7 @@ class SdkPatcher
   private_constant :BASE_SDK_ROOT_FOLDER, :NET_VERSION
 
   attr_reader :arch, :config, :os, :reporoot, :sdkchannel, :workpath
-  attr_reader :artifactsbin_path :platform, :repoplatform, :repoaltplatform
+  attr_reader :artifactsbin_path, :platform, :repoplatform, :repoaltplatform
 
   attr_accessor :sdkroot
 
@@ -55,15 +56,15 @@ class SdkPatcher
 
       :repo_netcoreappruntime => \
       bins + "#{netapp_s.downcase}.runtime.#{@platform}/#{@config}/runtimes" \
-      + "#{@platform}/lib" + NET_VERSION
+      + "#{@platform}/lib" + NET_VERSION,
 
       :sdk_hostfxr => @sdkroot + "host/fxr/#{sdkversion}",
       :sdk_framework => @sdkroot + "shared/#{netapp_s}/#{sdkversion}",
-      :sdk_refpacks => @sdkroot + "packs/#{netappref_s}/#{sdkversion}/ref" + NET_VERSION
+      :sdk_refpacks => @sdkroot + "packs/#{netappref_s}/#{sdkversion}/ref" + NET_VERSION,
 
       :sdk_nativepacks => \
       @sdkroot + "packs/#{netapphost_s}.#{@platform}/#{sdkversion}/runtimes" \
-      + "#{@platform}/native",
+      + "#{@platform}/native"
     }
 
     # TODO: Add file extensions handling when we add support for the other platforms.
@@ -114,13 +115,54 @@ class SdkPatcher
   end
 
   def downloadx_nightly_sdk(redownload)
+    print_banner("Downloading the Nightly SDK!")
+
     zipext = @os == 'windows' ? '.zip' : '.tar.gz'
     channel = @sdkchannel == 'main' ? "" : "-#{@sdkchannel}"
+    downloadzip = @workpath + "dotnet-sdk-nightly-#{@platform}-#{@sdkchannel}#{zipext}"
 
-    @sdkroot = "#{sdkroot}#{channel}"
+    @sdkroot = "#{@sdkroot}#{channel}"
+
+    # If the directory where we will extract the downloaded SDK already exists,
+    # then, we have to come up with another name to avoid overwriting and/or
+    # deleting the existing one. This, because the user might want to be testing
+    # different builds in parallel.
+
+    if (Dir.exist?(@sdkroot))
+      i = 1
+      while (Dir.exist?("#{@sdkroot}-#{i}")) do i += 1 end
+
+      print("\n#{@sdkroot.basename} folder exists."
+            " Will extract to #{@sdkroot.basename}-#{i} instead.\n")
+      @sdkroot = "#{@sdkroot}-#{i}"
+    end
 
     nightly_url = "https://aka.ms/dotnet/9.0.1xx#{channel}/daily/" \
                   "dotnet-sdk-#{@platform}#{zipext}"
+
+    # Zipped/Compressed downloaded SDK archives are clean, so if we find one
+    # here, there is no need to download it again, unless explicitly required
+    # with the Redownload flag. For some reason, Azure servers have been really
+    # slow in responding to and serving download requests, so we'll take any
+    # opportunity to optimize our testing procedures.
+
+    if (File.exist?(downloadzip) and redownload)
+      print("\nRedownload flag found and #{downloadzip.basename} exists."
+            " Cleaning it up...\n")
+      File.delete(downloadzip)
+    end
+
+    if (!File.exist?(downloadzip)) then download_file(nightly_url, downloadzip)
+    else print("\nFound #{downloadzip.basename}. Continuing...\n") end
+
+    # Extract compressed file here.
   end
 
+  private
+
+  def download_file(url, savepath)
+    print("\nDownloading #{url} to #{savepath}...\n")
+    dl_stream = URI.open(url)
+    File.write(savepath, dl_stream)
+  end
 end
