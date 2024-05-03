@@ -29,6 +29,10 @@ def make_many_dirs(*paths)
   paths.each { |dir| FileUtils.mkdir_p(dir) }
 end
 
-def copy_to_many(src, *dests)
-  dests.each { |target| FileUtils.cp_r(src, target) }
+def copy_one_to_many(src, *dests)
+  dests.each { |target| FileUtils.cp_r(src, target, remove_destination: true) }
+end
+
+def copy_many_to_one(dest, *sources)
+  sources.each { |origin| FileUtils.cp_r(origin, dest, remove_destination: true) }
 end

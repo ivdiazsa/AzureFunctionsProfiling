@@ -76,28 +76,28 @@ class FunctionsNetHostManager
 
     print("\nCopying FunctionsNetHost binaries...\n")
 
-    copy_to_many("#{hostsrc_bins}/FunctionsNetHost.exe",
-                 nethostbase_path, nethostprejit_path)
-
-    copy_to_many("#{hostsrc_bins}/nethost.dll",
-                 nethostbase_path, nethostprejit_path)
-
+    copy_one_to_many("#{hostsrc_bins}/FunctionsNetHost.exe",
+                     nethostbase_path, nethostprejit_path)
+    
+    copy_one_to_many("#{hostsrc_bins}/nethost.dll",
+                     nethostbase_path, nethostprejit_path)
+    
     print("Copying #{app44_name} binaries...\n")
 
-    copy_to_many("#{app44_bins}/.",
-                 app44_path, "#{nethostprejit_path}/#{app44_name}")
+    copy_one_to_many("#{app44_bins}/.",
+                     app44_path, "#{nethostprejit_path}/#{app44_name}")
+    
+    print("Copying #{placeholder_name} binaries...\n")
+
+    copy_one_to_many(Dir.glob("#{place_hook_bins}/PlaceholderApp.*"),
+                     "#{nethostbase_path}/#{placeholder_name}",
+                     "#{nethostprejit_path}/#{placeholder_name}")
 
     print("Copying #{placeholder_name} binaries...\n")
 
-    copy_to_many(Dir.glob("#{place_hook_bins}/PlaceholderApp.*"),
-                 "#{nethostbase_path}/#{placeholder_name}",
-                 "#{nethostprejit_path}/#{placeholder_name}")
-
-    print("Copying #{placeholder_name} binaries...\n")
-
-    copy_to_many(Dir.glob("#{place_hook_bins}/StartupHook.*"),
-                 "#{nethostbase_path}/#{startuphook_name}",
-                 "#{nethostprejit_path}/#{startuphook_name}")
+    copy_one_to_many(Dir.glob("#{place_hook_bins}/StartupHook.*"),
+                     "#{nethostbase_path}/#{startuphook_name}",
+                     "#{nethostprejit_path}/#{startuphook_name}")
 
     print("\nFinished copying the artifacts!\n")
   end
