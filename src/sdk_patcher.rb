@@ -1,7 +1,7 @@
 # File: sdk_patcher.rb
 
 require 'pathname'
-require 'uri'
+require 'open-uri'
 require_relative 'utils'
 
 class SdkPatcher
@@ -121,7 +121,8 @@ class SdkPatcher
     channel = @sdkchannel == 'main' ? "" : "-#{@sdkchannel}"
     downloadzip = @workpath + "dotnet-sdk-nightly-#{@platform}-#{@sdkchannel}#{zipext}"
 
-    @sdkroot = "#{@sdkroot}#{channel}"
+    @sdkroot = Pathname.new("#{@sdkroot}#{channel}")
+    print("\n")
 
     # If the directory where we will extract the downloaded SDK already exists,
     # then, we have to come up with another name to avoid overwriting and/or
@@ -132,9 +133,9 @@ class SdkPatcher
       i = 1
       while (Dir.exist?("#{@sdkroot}-#{i}")) do i += 1 end
 
-      print("\n#{@sdkroot.basename} folder exists."
-            " Will extract to #{@sdkroot.basename}-#{i} instead.\n")
-      @sdkroot = "#{@sdkroot}-#{i}"
+      print("#{File.basename(@sdkroot)} folder exists." \
+            " Will extract to #{File.basename(@sdkroot)}-#{i} instead.\n")
+      @sdkroot = Pathname.new("#{@sdkroot}-#{i}")
     end
 
     nightly_url = "https://aka.ms/dotnet/9.0.1xx#{channel}/daily/" \
@@ -147,22 +148,46 @@ class SdkPatcher
     # opportunity to optimize our testing procedures.
 
     if (File.exist?(downloadzip) and redownload)
-      print("\nRedownload flag found and #{downloadzip.basename} exists."
+      print("Redownload flag found and #{File.basename(downloadzip)} exists." \
             " Cleaning it up...\n")
       File.delete(downloadzip)
     end
 
     if (!File.exist?(downloadzip)) then download_file(nightly_url, downloadzip)
-    else print("\nFound #{downloadzip.basename}. Continuing...\n") end
+    else print("Found #{File.basename(downloadzip)}. Continuing...\n") end
 
-    # Extract compressed file here.
+    extract_compressed(downloadzip, @sdkroot)
+    print("\nFinished downloading and extracting the nightly SDK!\n")
   end
 
   private
 
   def download_file(url, savepath)
-    print("\nDownloading #{url} to #{savepath}...\n")
-    dl_stream = URI.open(url)
-    File.write(savepath, dl_stream)
+    dlscript_args = "-srcUrl #{url} -targetDest #{File.absolute_path(savepath)}"
+    system("pwsh #{__dir__}/Download-File.ps1 #{dlscript_args}")
   end
+
+  def extract_compressed(compressed, target)
+    # Zip's and Tar.gz's are the most commonly used compression formats, and the
+    # ones we will potentially be working with here. However, they also require
+    # different tools to extract. For zip's, we'll use Powershell's Expand-Archive
+    # cmdlet, and for tar.gz's, we'll use the system's installed 'tar' utility.
+
+    # Some tools need the target directory to be created beforehand, and others
+    # don't mind, so we create it here just to be safe.
+    Dir.mkdir(target)
+
+    srcpath = File.absolute_path(compressed)
+    dstpath = File.absolute_path(target)
+
+    if (@os == 'windows')
+      extract_script_args = "-srcCompressed #{srcpath} -targetDest #{dstpath}"
+      system("pwsh #{__dir__}/Extract-Archive.ps1 #{extract_script_args}")
+    else
+      print("Extracting #{compressed.basename} using the system's tar utility...\n")
+      tar_args = "-zxf #{srcpath} -C #{dstpath}"
+      system("tar #{tar_args}")
+    end
+  end
+
 end

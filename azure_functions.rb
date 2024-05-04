@@ -69,6 +69,7 @@ context.stages.each do |stage|
       ctx.workpath
     )
 
+    patcher.downloadx_nightly_sdk(ctx.redownload)
     patcher.patch_sdk()
 
   else
