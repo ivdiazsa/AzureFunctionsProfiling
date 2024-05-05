@@ -1,15 +1,15 @@
-AppAnalyzer/bin/*
-AppAnalyzer/out/*
-AppAnalyzer/obj/*
+Oldies/AppAnalyzer/bin/*
+Oldies/AppAnalyzer/out/*
+Oldies/AppAnalyzer/obj/*
 
-AppAnalyzer/*.txt
+Oldies/AppAnalyzer/*.txt
 
-SDKPatcher/bin/*
-SDKPatcher/obj/*
-SDKPatcher/out/*
+Oldies/SDKPatcher/bin/*
+Oldies/SDKPatcher/obj/*
+Oldies/SDKPatcher/out/*
 
-SDKPatcher/dotnet-sdk-nightly*
+Oldies/SDKPatcher/dotnet-sdk-nightly*
 
-FunctionsTestPatcher/bin/*
-FunctionsTestPatcher/obj/*
-FunctionsTestPatcher/out/*
+Oldies/FunctionsTestPatcher/bin/*
+Oldies/FunctionsTestPatcher/obj/*
+Oldies/FunctionsTestPatcher/out/*
