@@ -54,9 +54,7 @@ class Validator
       if (at_ctx.analyzerapp.nil?)
         print("There are some unprocessed traces but no analyzer app passed :(\n")
         ready = false
-      end
-
-      unless File.exist?(analyzerapp)
+      elsif !File.exist?(analyzerapp)
         print("Analyzer App #{at_ctx.analyzerapp} was not found :(\n")
         ready = false
       end
@@ -76,7 +74,7 @@ class Validator
   end
 
   def self.validate_build_worker(bw_ctx)
-    print("\nAnalyzing 'build_worker' params...\n")
+    print("\nValidating 'build_worker' params...\n")
     ready = true
 
     unless ENV['OS'].casecmp?('Windows_NT')
@@ -88,7 +86,7 @@ class Validator
     # If both, '--build-only' and '--copy-only', flags were passed, then the
     # build-worker stage is instructed to not run anyways later, so we can
     # skip the validations without any risks or issues.
-    return true if btw_ctx.buildonly and btw_ctx.copyonly
+    return true if bw_ctx.buildonly and bw_ctx.copyonly
 
     # We're adding the "or not the other condition" here, to also account for
     # when neither flag is passed, which means we will run both.
@@ -115,7 +113,7 @@ class Validator
   end
 
   def self.validate_run_benchmarks(rb_ctx)
-    print("\nAnalyzing 'build_worker' params...\n")
+    print("\nValidating 'run_benchmarks' params...\n")
     ready = true
 
     unless ENV['OS'].casecmp?('Windows_NT')
@@ -153,6 +151,41 @@ class Validator
   end
 
   def self.validate_patch_sdk(ps_ctx)
+    print("\nValidating 'patch_sdk' params...\n")
+    ready = true
+
+    if (ps_ctx.arch.nil?)
+      print("No architecture was provided to search the repo :(\n")
+      ready = false
+    elsif !(ps_ctx.arch == 'x64' or ps_ctx.arch == 'arm64')
+      print("The given architecture #{ps_ctx.arch} was not recognized :(\n")
+      print("The supported values are: x64 and arm64.\n")
+      ready = false
+    end
+
+    if (ps_ctx.config.nil?)
+      print("No configuration was provided to search the repo :(\n")
+      ready = false
+    elsif !(ps_ctx.config == 'Release' or ps_ctx.config == 'Debug')
+      print("The given configuration #{ps_ctx.config} was not recognized :(\n")
+      print("The supported values are: Release and Debug.\n")
+      ready = false
+    end
+
+    if (ps_ctx.os.nil?)
+      print("No operating system was provided to search the repo :(\n")
+      ready = false
+    elsif !['windows', 'osx', 'linux'].include?(ps_ctx.os)
+      print("The given operating system #{ps_ctx.os} was not recognized :(\n")
+      print("The supported values are: windows, osx, and linux.\n")
+      ready = false
+    end
+
+    unless Dir.exist?(ps_ctx.runtime_repo)
+      print("The runtime repo path #{ps_ctx.runtime_repo} was not found :(\n")
+      ready = false
+    end
+    return ready
   end
 
 end
