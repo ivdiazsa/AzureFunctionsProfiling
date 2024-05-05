@@ -4,6 +4,9 @@ require 'pathname'
 require 'open-uri'
 require_relative 'utils'
 
+# TODO: Add option to only patch an existing SDK download, rather than always
+#       downloading and patching.
+
 class SdkPatcher
 
   BASE_SDK_ROOT_FOLDER = 'dotnet-sdk-nightly'

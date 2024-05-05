@@ -54,8 +54,8 @@ class CommandLineParser
     puts "\n-h, --help     Prints this message"
     puts "\nThis script contains lots of different functionalities that allow you" \
          " to run all Azure Functions profiling E2E, or just a section of it."     \
-         " The currently supported stages are: analyze-trace, build-worker, and"   \
-         " run-benchmarks."
+         " The currently supported stages are: analyze-trace, build-worker,"       \
+         " run-benchmarks, and patch-sdk."
     puts "\nRun ruby 'azure_functions.rb <stage> --help' to learn more about each" \
          " individual stage.\n\n"
   end
@@ -139,7 +139,6 @@ class CommandLineParser
         ctx.azfunctions_repo = value
       end
 
-      # TODO: Ensure '--copy-only' and '--no-copy' are mutually exclusive.
       params.on('--copy-only',
                 'Do not rebuild the FunctionsNetHost artifacts. Only copy them.') do
         ctx.copyonly = true

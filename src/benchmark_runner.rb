@@ -49,19 +49,6 @@ class BenchmarkRunner
                    "E30BA2D3-75B8-4E96-9F82-F41EAAC243E5",
                    "69CB2C45-CAF6-48C1-81F9-4C59D93CF43B"]
 
-      # perfview_args = "/DataFile:\"#{@tracepath}\""            \
-      #                 " /BufferSizeMB:256"                     \
-      #                 " /LogFile:#{@tracepath}.log"            \
-      #                 " /StackCompression"                     \
-      #                 " /CircularMB:500"                       \
-      #                 " /Providers:\"#{providers.join(',')}\"" \
-      #                 " /NoGui"                                \
-      #                 " /NoNGenRundown"                        \
-      #                 " /Merge:True"                           \
-      #                 " /Zip:False"                            \
-      #                 " run"                                   \
-      #                 " func-harness"
-
       perfview_args = ["/DataFile:\"#{@tracepath}\"",
                        "/BufferSizeMB:256",
                        "/LogFile:#{@tracepath}.log",
@@ -74,11 +61,6 @@ class BenchmarkRunner
                        "/Zip:False",
                        "run",
                        "func-harness"]
-
-      # puts "PROVIDERS: #{providers}"
-      # puts ""
-      # puts "ARGS: #{perfview_args.join(' ')}"
-      # return
 
       print("\nRunning #{@perfviewpath} #{perfview_args.join(' ')}\n\n")
       system("#{perfviewpath} #{perfview_args.join(' ')}")
