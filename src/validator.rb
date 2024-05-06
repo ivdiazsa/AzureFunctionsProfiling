@@ -26,16 +26,7 @@ class Validator
   def self.validate_analyze_trace(at_ctx)
     print("\nValidating 'analyze_trace' params...\n")
     ready = true
-
-    # TODO: There is a bit of code duplication here that we might be able to
-    #       refactor and clean up a bit.
-
-    if (at_ctx.traces.any? { |t| File.extname(t) != '.coldstart' } and
-        !ENV['OS'].casecmp?('Windows_NT'))
-      print("Apologies, but unprocessed traces were found and the analyzer" \
-            " tools currently only run on Windows :(\n")
-      return false
-    end
+    has_unprocessed = false
 
     if (at_ctx.traces.empty?)
       print("No traces or coldstart files were passed, so we can't perform" \
@@ -48,13 +39,21 @@ class Validator
         print("Trace/Coldstart file #{tfile} was not found :(\n")
         ready = false
       end
+
+      if (File.extname(tfile) != '.coldstart') then has_unprocessed = true end
     end
 
-    if (at_ctx.traces.any? { |t| File.extname(t) != '.coldstart' })
-      if (at_ctx.analyzerapp.nil?)
+    if (has_unprocessed)
+      if (!ENV['OS'].casecmp?('Windows_NT'))
+        print("Apologies, but unprocessed traces were found and the analyzer" \
+              " tools currently only run on Windows :(\n")
+        ready = false
+
+      elsif (at_ctx.analyzerapp.nil?)
         print("There are some unprocessed traces but no analyzer app passed :(\n")
         ready = false
-      elsif !File.exist?(analyzerapp)
+
+      elsif (!File.exist?(analyzerapp))
         print("Analyzer App #{at_ctx.analyzerapp} was not found :(\n")
         ready = false
       end

@@ -13,8 +13,6 @@ require_relative 'src/utils'
 print_banner("AZURE FUNCTIONS!")
 context = CommandLineParser.parse_into_context(ARGV)
 
-# TODO: Add some flags validation, e.g. can't compare if only one trace was provided.
-
 # Run each of the desired stages. Currently, this is just symbolic since only one
 # stage at a time is supported, but we're laying the groundwork and basis for the
 # next steps since now :)

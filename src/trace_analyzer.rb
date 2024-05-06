@@ -3,7 +3,6 @@
 require 'terminal-table'
 require_relative 'utils'
 
-# TODO: Add choices for different trace analyzing functionalities.
 class TraceAnalyzer
 
   # Little class to keep track of the stats of a specific Jitted method.
@@ -29,7 +28,6 @@ class TraceAnalyzer
 
   # We can actually not receive an analyzer path. In that case, the trace files
   # must all be already processed .coldstart files.
-  # TODO: Add validation for the above comment.
 
   def initialize(_analyzer, _traces)
     @analyzerapp = _analyzer.gsub(/\\+/, '/') unless _analyzer.nil?
@@ -137,8 +135,6 @@ class TraceAnalyzer
     # test2 = data[1].keys.sort
     # generate_table(test1.zip(test2), 'Testing if they are really equal', ['One', 'Two'])
     # return
-
-    # TODO: Support comparing more than two traces at once.
 
     case comptype
     when :equal

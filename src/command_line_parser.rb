@@ -2,8 +2,6 @@
 
 require 'optparse'
 
-# TODO: Separate all the MainContext's values into smaller sub-context classes
-#       for better code organization and cleanliness.
 class MainContext
 
   attr_reader :analyzetrace_context, :buildworker_context, :runbenchmarks_context,
@@ -46,7 +44,6 @@ class MainContext
   end
 end
 
-# TODO: Implement required flags.
 class CommandLineParser
 
   def self.display_help
@@ -69,7 +66,6 @@ class CommandLineParser
       exit 0
     end
 
-    # TODO: Add a general help for the script.
     case stage
     when 'analyze-trace'
       self.parse_analyze_trace_params(args, context.analyzetrace_context)
